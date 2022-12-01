@@ -9,8 +9,8 @@
 
 #define NUMBER_OF_REPEATS 3
 
+#include "buttons.h"
 #include <IRremote.hpp>
-#include "buttons.cpp"
 
 const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
 const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
@@ -68,7 +68,7 @@ void loop() {
 
 
   // Switch program state when btn41 is pressed
-  if ((buttonStates & buttonBitMasks[4][1]) && !(lastButtonStates & buttonBitMasks[4][1])) {
+  if ((buttonStates & buttonBitMask(4, 1)) && !(lastButtonStates & buttonBitMask(4, 1))) {
     // Shutdown tasks
     switch (programState) {
       case remote:
@@ -131,7 +131,7 @@ void remoteProgram() {
   for (unsigned char i = 0; i < sizeof(row); i++) {
     for (unsigned char j = 0; j < sizeof(column); j++) {
 
-      if ((buttonStates & buttonBitMasks[i][j]) && !(lastButtonStates & buttonBitMasks[i][j])) {
+      if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
         Serial.print("Knapp tryckt ");
         Serial.print(i, DEC);
         Serial.println(j, DEC);
@@ -150,7 +150,7 @@ void remoteProgram() {
 void recordingProgram() {
   for (unsigned char i = 0; i < sizeof(row); i++) {
     for (unsigned char j = 0; j < sizeof(column); j++) {
-      if (buttonStates & buttonBitMasks[i][j]) {
+      if (buttonStates & buttonBitMask(i, j)) {
         lastPressedButton[0] = i;
         lastPressedButton[1] = j;
         Serial.print(i, DEC);
@@ -211,7 +211,7 @@ void scanMatrix() {
       for (unsigned char j = 0; j < sizeof(column); j++) {
         buttonStates |= (!digitalRead(column[j]) & 1UL) << buttonShiftLeft[i][j];
   
-        if (buttonStates & buttonBitMasks[i][j]) {
+        if (buttonStates & buttonBitMask(i, j)) {
           lastPressedButton[0] = i;
           lastPressedButton[1] = j;
         }
@@ -220,20 +220,20 @@ void scanMatrix() {
     }
   
     // Correct for hardware bug on last column (column 3)
-    if (buttonStates & buttonBitMasks[0][3]) {
-      buttonStates = buttonStates & ~(buttonBitMasks[0][2] | buttonBitMasks[0][0]);
+    if (buttonStates & buttonBitMask(0, 3)) {
+      buttonStates = buttonStates & ~(buttonBitMask(0, 2) | buttonBitMask(0, 0));
     }
-    if (buttonStates & buttonBitMasks[1][3]) {
-      buttonStates = buttonStates & ~(buttonBitMasks[1][2] | buttonBitMasks[1][0]);
+    if (buttonStates & buttonBitMask(1, 3)) {
+      buttonStates = buttonStates & ~(buttonBitMask(1, 2) | buttonBitMask(1, 0));
     }
-    if (buttonStates & buttonBitMasks[2][3]) {
-      buttonStates = buttonStates & ~(buttonBitMasks[2][2] | buttonBitMasks[2][0]);
+    if (buttonStates & buttonBitMask(2, 3)) {
+      buttonStates = buttonStates & ~(buttonBitMask(2, 2) | buttonBitMask(2, 0));
     }
-    if (buttonStates & buttonBitMasks[3][3]) {
-      buttonStates = buttonStates & ~(buttonBitMasks[3][2] | buttonBitMasks[3][0]);
+    if (buttonStates & buttonBitMask(3, 3)) {
+      buttonStates = buttonStates & ~(buttonBitMask(3, 2) | buttonBitMask(3, 0));
     }
-    if (buttonStates & buttonBitMasks[4][3]) {
-      buttonStates = buttonStates & ~(buttonBitMasks[4][2] | buttonBitMasks[4][0]);
+    if (buttonStates & buttonBitMask(4, 3)) {
+      buttonStates = buttonStates & ~(buttonBitMask(4, 2) | buttonBitMask(4, 0));
     }
 
   } while (tempButtonStates != buttonStates); // Compare so that the two runs have got the same value
@@ -244,13 +244,13 @@ void scanMatrix() {
   digitalWrite(IR_SEND_PIN, HIGH);
 }
 
-/*void sleep() {
+void sleep() {
   TCB0.CTRLA = 0; // Disable TCB0 timer
   ADC0.CTRLA &= ~ADC_ENABLE_bm; // Disable ADC
   
-}*/
+}
 
-/*void wakeProcedure() {
+void wakeProcedure() {
   init_TCA0(); // Wake TCA0 timer
   init_millis(); // Initialize millis
-}*/
+}
