@@ -32,6 +32,9 @@ struct storedIRDataStruct {
   IRData receivedIRData;
 } storedIRData[5][4];
 
+volatile bool PA2InterruptFlag = 0;
+volatile bool PA6InterruptFlag = 0;
+
 void setup() {
 
   for (unsigned char i = 0; i < sizeof(row); i++) {
@@ -247,10 +250,28 @@ void scanMatrix() {
 void sleep() {
   TCB0.CTRLA = 0; // Disable TCB0 timer
   ADC0.CTRLA &= ~ADC_ENABLE_bm; // Disable ADC
+
+  PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2;
+  PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
   
 }
 
 void wakeProcedure() {
+  // Disable interrupt on PIN_PA2 and PIN_PA6. Pull ups still enabled
+  PORTA.PIN2CTRL = 0b00001000;
+  PORTA.PIN6CTRL = 0b00001000;
+  
   init_TCA0(); // Wake TCA0 timer
   init_millis(); // Initialize millis
+}
+
+ISR(PORTA_PORT_vect) {
+  byte flags = PORTA.INTFLAGS;
+  PORTA.INTFLAGS = flags; //clear flags
+  if (flags & 0b00000010) { // Interrupt fired on PIN_PA2
+    PA2InterruptFlag = 1;
+  }
+  if (flags & 0b01000000) { // Interrupt fired on PIN_PA6
+    PA6InterruptFlag = 1;
+  }
 }
