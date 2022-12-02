@@ -9,6 +9,8 @@
 
 #define NUMBER_OF_REPEATS 3
 
+#define SERIAL_SPEED 115200
+
 #include "buttons.h"
 #include <IRremote.hpp>
 
@@ -62,9 +64,9 @@ void loop() {
   Serial.end();
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinMode(SHORT_COLUMNS, OUTPUT); 
-  digitalWrite(SHORT_COLUMNS, HIGH);
+  digitalWrite(SHORT_COLUMNS, HIGH); // Active low
   scanMatrix();
-  Serial.begin(9600); // Turn serial back on once the button scanning is done
+  Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
 
 
   // Switch program state when btn41 is pressed
@@ -126,6 +128,7 @@ void loop() {
   }
 }
 
+
 void remoteProgram() {
 
   for (unsigned char i = 0; i < sizeof(row); i++) {
@@ -145,6 +148,13 @@ void remoteProgram() {
     }
   }
 
+  // Only sleep if no buttons are pressed
+  if (buttonStates == 0UL) {
+    Serial.println("Somnar");
+    sleep();
+    wakeProcedure();
+    Serial.println("Vaknar");
+  }
 }
 
 void recordingProgram() {
@@ -244,13 +254,53 @@ void scanMatrix() {
   digitalWrite(IR_SEND_PIN, HIGH);
 }
 
+// Procedure to prepare for sleep and start sleeping
 void sleep() {
-  TCB0.CTRLA = 0; // Disable TCB0 timer
-  ADC0.CTRLA &= ~ADC_ENABLE_bm; // Disable ADC
+  pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
+                                      // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
+
+  // Set all rows to low so a falling interrupt can be generated when button is pressed 
+  for (unsigned char i = 0; i < sizeof(row); i++) {
+    digitalWrite(row[i], LOW);
+  }
+
+  Serial.end(); // Because serial TX and SHORT_COLUMNS is the same pin serial has to be disabled. 
+  // Short column 0, 2 and 3 so that they all connect to PIN_PA6 and all buttons can generate interrupts. 
+  pinMode(SHORT_COLUMNS, OUTPUT);
+  digitalWrite(SHORT_COLUMNS, LOW); // Active low
   
+  PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2
+  PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
+
+  SLPCTRL.CTRLA = 0b00000101; // Set sleep mode to power-down and enable sleeping
+  __asm__ __volatile__ ( "sleep" "\n\t" :: ); // Start sleeping
 }
 
-void wakeProcedure() {
-  init_TCA0(); // Wake TCA0 timer
-  init_millis(); // Initialize millis
+// Procedure when waking up to set things back to normal and enable peripherals
+void wakeProcedure() {  
+  SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
+
+  // Revert rows to high
+  for (unsigned char i = 0; i < sizeof(row); i++) {
+    digitalWrite(row[i], HIGH);
+  }
+
+  // Revert IR_SEND_PIN so it can be used for sending IR
+  pinMode(IR_SEND_PIN, OUTPUT);
+  digitalWrite(IR_SEND_PIN, HIGH);
+
+  Serial.begin(SERIAL_SPEED);  // Start serial again
+  
+  //init_TCA0(); // Wake TCA0 timer
+  //init_millis(); // Initialize millis
+}
+
+// Interrupt for when a button is pressed to wake the cpu
+ISR(PORTA_PORT_vect) {
+  byte flags = PORTA.INTFLAGS;
+  PORTA.INTFLAGS = flags; //clear flags
+  
+  // Disable interrupt on PIN_PA2 and PIN_PA6. Needed in case the button bounces and we don't want to trigger the interrupt when it's already running. Pull ups still enabled.
+  PORTA.PIN2CTRL = 0b00001000;
+  PORTA.PIN6CTRL = 0b00001000;
 }

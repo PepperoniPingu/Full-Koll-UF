@@ -23,6 +23,7 @@
 #define btn42ShiftLeft 18
 #define btn43ShiftLeft 19
 
+
 // A way to dynamically address the defined amount of shifting
 const unsigned long buttonShiftLeft[5][4] = {
   {btn00ShiftLeft, btn01ShiftLeft, btn02ShiftLeft, btn03ShiftLeft},
