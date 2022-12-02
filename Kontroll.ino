@@ -64,10 +64,9 @@ void loop() {
   Serial.end();
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinMode(SHORT_COLUMNS, OUTPUT); 
-  digitalWrite(SHORT_COLUMNS, LOW);
+  digitalWrite(SHORT_COLUMNS, HIGH); // Active low
   scanMatrix();
   Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
-  //Serial.println("Running");
 
 
   // Switch program state when btn41 is pressed
@@ -149,9 +148,13 @@ void remoteProgram() {
     }
   }
 
-  sleep();
-  wakeProcedure();
-  Serial.println("Vaknar");
+  // Only sleep if no buttons are pressed
+  if (buttonStates == 0UL) {
+    Serial.println("Somnar");
+    sleep();
+    wakeProcedure();
+    Serial.println("Vaknar");
+  }
 }
 
 void recordingProgram() {
@@ -252,8 +255,6 @@ void scanMatrix() {
 }
 
 void sleep() {
-  buttonStates = 0UL; // Reset buttons
-  
   pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
                                       // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
 
