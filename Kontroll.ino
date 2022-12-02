@@ -254,6 +254,7 @@ void scanMatrix() {
   digitalWrite(IR_SEND_PIN, HIGH);
 }
 
+// Procedure to prepare for sleep and start sleeping
 void sleep() {
   pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
                                       // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
@@ -275,6 +276,7 @@ void sleep() {
   __asm__ __volatile__ ( "sleep" "\n\t" :: ); // Start sleeping
 }
 
+// Procedure when waking up to set things back to normal and enable peripherals
 void wakeProcedure() {  
   SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
 
@@ -293,6 +295,7 @@ void wakeProcedure() {
   //init_millis(); // Initialize millis
 }
 
+// Interrupt for when a button is pressed to wake the cpu
 ISR(PORTA_PORT_vect) {
   byte flags = PORTA.INTFLAGS;
   PORTA.INTFLAGS = flags; //clear flags
