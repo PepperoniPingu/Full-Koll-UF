@@ -34,8 +34,6 @@ struct storedIRDataStruct {
   IRData receivedIRData;
 } storedIRData[5][4];
 
-volatile bool wakeInterruptFlag = 0;
-
 void setup() {
 
   for (unsigned char i = 0; i < sizeof(row); i++) {
@@ -254,18 +252,22 @@ void scanMatrix() {
 }
 
 void sleep() {
-  // IR_SEND_PIN is used for both button matrix and sending IR. When sending IR-codes it needs to be inverted since the IR LED is active low. 
-  pinMode(IR_SEND_PIN, INPUT_PULLUP);
-  PORTA.PIN4CTRL &= ~PORT_INVEN_bm;
+  buttonStates = 0UL; // Reset buttons
+  
+  pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
+                                      // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
+
+  // Set all rows to low so a falling interrupt can be generated when button is pressed 
   for (unsigned char i = 0; i < sizeof(row); i++) {
     digitalWrite(row[i], LOW);
   }
 
-  Serial.end();
+  Serial.end(); // Because serial TX and SHORT_COLUMNS is the same pin serial has to be disabled. 
+  // Short column 0, 2 and 3 so that they all connect to PIN_PA6 and all buttons can generate interrupts. 
   pinMode(SHORT_COLUMNS, OUTPUT);
-  digitalWrite(SHORT_COLUMNS, LOW);
+  digitalWrite(SHORT_COLUMNS, LOW); // Active low
   
-  PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2;
+  PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2
   PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
 
   SLPCTRL.CTRLA = 0b00000101; // Set sleep mode to power-down and enable sleeping
@@ -273,22 +275,18 @@ void sleep() {
 }
 
 void wakeProcedure() {  
-  // Disable interrupt on PIN_PA2 and PIN_PA6. Pull ups still enabled
-  PORTA.PIN2CTRL = 0b00001000;
-  PORTA.PIN6CTRL = 0b00001000;
-
   SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
 
+  // Revert rows to high
   for (unsigned char i = 0; i < sizeof(row); i++) {
     digitalWrite(row[i], HIGH);
   }
 
   // Revert IR_SEND_PIN so it can be used for sending IR
-  PORTA.PIN4CTRL |= PORT_INVEN_bm;
   pinMode(IR_SEND_PIN, OUTPUT);
   digitalWrite(IR_SEND_PIN, HIGH);
 
-  Serial.begin(SERIAL_SPEED);
+  Serial.begin(SERIAL_SPEED);  // Start serial again
   
   //init_TCA0(); // Wake TCA0 timer
   //init_millis(); // Initialize millis
@@ -297,7 +295,8 @@ void wakeProcedure() {
 ISR(PORTA_PORT_vect) {
   byte flags = PORTA.INTFLAGS;
   PORTA.INTFLAGS = flags; //clear flags
+  
+  // Disable interrupt on PIN_PA2 and PIN_PA6. Needed in case the button bounces and we don't want to trigger the interrupt when it's already running. Pull ups still enabled.
   PORTA.PIN2CTRL = 0b00001000;
   PORTA.PIN6CTRL = 0b00001000;
-  //wakeInterruptFlag = 1;
 }
