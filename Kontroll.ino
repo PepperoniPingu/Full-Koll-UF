@@ -32,8 +32,7 @@ struct storedIRDataStruct {
   IRData receivedIRData;
 } storedIRData[5][4];
 
-volatile bool PA2InterruptFlag = 0;
-volatile bool PA6InterruptFlag = 0;
+volatile bool wakeInterruptFlag = 0;
 
 void setup() {
 
@@ -68,6 +67,7 @@ void loop() {
   digitalWrite(SHORT_COLUMNS, HIGH);
   scanMatrix();
   Serial.begin(9600); // Turn serial back on once the button scanning is done
+  Serial.println("Running");
 
 
   // Switch program state when btn41 is pressed
@@ -129,6 +129,7 @@ void loop() {
   }
 }
 
+
 void remoteProgram() {
 
   for (unsigned char i = 0; i < sizeof(row); i++) {
@@ -148,6 +149,9 @@ void remoteProgram() {
     }
   }
 
+  sleep();
+  wakeProcedure();
+  Serial.println("Vaknar");
 }
 
 void recordingProgram() {
@@ -248,30 +252,40 @@ void scanMatrix() {
 }
 
 void sleep() {
-  TCB0.CTRLA = 0; // Disable TCB0 timer
-  ADC0.CTRLA &= ~ADC_ENABLE_bm; // Disable ADC
+  for (unsigned char i = 0; i < sizeof(row); i++) {
+    digitalWrite(row[i], LOW);
+  }
 
+  Serial.end();
+  pinMode(SHORT_COLUMNS, OUTPUT);
+  digitalWrite(SHORT_COLUMNS, LOW);
+  
   PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2;
   PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
-  
+
+  SLPCTRL.CTRLA = 0b00000101; // Set sleep mode to power-down and enable sleeping
+  __asm__ __volatile__ ( "sleep" "\n\t" :: ); // Start sleeping
 }
 
 void wakeProcedure() {
+  for (unsigned char i = 0; i < sizeof(row); i++) {
+    digitalWrite(row[i], HIGH);
+  }
+
+  Serial.begin(9600);
+  
   // Disable interrupt on PIN_PA2 and PIN_PA6. Pull ups still enabled
   PORTA.PIN2CTRL = 0b00001000;
   PORTA.PIN6CTRL = 0b00001000;
+
+  SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
   
-  init_TCA0(); // Wake TCA0 timer
-  init_millis(); // Initialize millis
+  //init_TCA0(); // Wake TCA0 timer
+  //init_millis(); // Initialize millis
 }
 
 ISR(PORTA_PORT_vect) {
   byte flags = PORTA.INTFLAGS;
   PORTA.INTFLAGS = flags; //clear flags
-  if (flags & 0b00000010) { // Interrupt fired on PIN_PA2
-    PA2InterruptFlag = 1;
-  }
-  if (flags & 0b01000000) { // Interrupt fired on PIN_PA6
-    PA6InterruptFlag = 1;
-  }
+  //wakeInterruptFlag = 1;
 }
