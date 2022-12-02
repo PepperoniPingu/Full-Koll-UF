@@ -9,6 +9,8 @@
 
 #define NUMBER_OF_REPEATS 3
 
+#define SERIAL_SPEED 115200
+
 #include "buttons.h"
 #include <IRremote.hpp>
 
@@ -64,10 +66,10 @@ void loop() {
   Serial.end();
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinMode(SHORT_COLUMNS, OUTPUT); 
-  digitalWrite(SHORT_COLUMNS, HIGH);
+  digitalWrite(SHORT_COLUMNS, LOW);
   scanMatrix();
-  Serial.begin(9600); // Turn serial back on once the button scanning is done
-  Serial.println("Running");
+  Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
+  //Serial.println("Running");
 
 
   // Switch program state when btn41 is pressed
@@ -252,6 +254,9 @@ void scanMatrix() {
 }
 
 void sleep() {
+  // IR_SEND_PIN is used for both button matrix and sending IR. When sending IR-codes it needs to be inverted since the IR LED is active low. 
+  pinMode(IR_SEND_PIN, INPUT_PULLUP);
+  PORTA.PIN4CTRL &= ~PORT_INVEN_bm;
   for (unsigned char i = 0; i < sizeof(row); i++) {
     digitalWrite(row[i], LOW);
   }
@@ -267,18 +272,23 @@ void sleep() {
   __asm__ __volatile__ ( "sleep" "\n\t" :: ); // Start sleeping
 }
 
-void wakeProcedure() {
-  for (unsigned char i = 0; i < sizeof(row); i++) {
-    digitalWrite(row[i], HIGH);
-  }
-
-  Serial.begin(9600);
-  
+void wakeProcedure() {  
   // Disable interrupt on PIN_PA2 and PIN_PA6. Pull ups still enabled
   PORTA.PIN2CTRL = 0b00001000;
   PORTA.PIN6CTRL = 0b00001000;
 
   SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
+
+  for (unsigned char i = 0; i < sizeof(row); i++) {
+    digitalWrite(row[i], HIGH);
+  }
+
+  // Revert IR_SEND_PIN so it can be used for sending IR
+  PORTA.PIN4CTRL |= PORT_INVEN_bm;
+  pinMode(IR_SEND_PIN, OUTPUT);
+  digitalWrite(IR_SEND_PIN, HIGH);
+
+  Serial.begin(SERIAL_SPEED);
   
   //init_TCA0(); // Wake TCA0 timer
   //init_millis(); // Initialize millis
@@ -287,5 +297,7 @@ void wakeProcedure() {
 ISR(PORTA_PORT_vect) {
   byte flags = PORTA.INTFLAGS;
   PORTA.INTFLAGS = flags; //clear flags
+  PORTA.PIN2CTRL = 0b00001000;
+  PORTA.PIN6CTRL = 0b00001000;
   //wakeInterruptFlag = 1;
 }
