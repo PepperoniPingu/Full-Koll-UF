@@ -155,13 +155,14 @@ void remoteProgram() {
 }
 
 void recordingProgram() {
+
   for (unsigned char i = 0; i < sizeof(row); i++) {
     for (unsigned char j = 0; j < sizeof(column); j++) {
-      if (buttonStates & buttonBitMask(i, j)) {
-        lastPressedButton[0] = i;
-        lastPressedButton[1] = j;
+      if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
+        Serial.print("Knapp tryckt ");
         Serial.print(i, DEC);
         Serial.println(j, DEC);
+        Serial.println(buttonStates, BIN); 
       }
     }
   }
