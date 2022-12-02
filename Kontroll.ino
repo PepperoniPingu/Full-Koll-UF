@@ -11,8 +11,11 @@
 
 #define SERIAL_SPEED 115200
 
+#define EEPROM_I2C_ADDRESS 0x50
+
 #include "buttons.h"
 #include <IRremote.hpp>
+#include <Wire.h>
 
 const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
 const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
@@ -56,18 +59,12 @@ void setup() {
   IrSender.begin(IR_SEND_PIN);
   IrSender.enableIROut(38);
   PORTA.PIN4CTRL |= PORT_INVEN_bm;
+
+  Serial.swap(0); // Use serial interface 0
 }
 
 void loop() {
-  
-  // Serial doesn't work when SHORT_COLUMNS is high. Therefore, to scan the button matrix, serial has to be disabled. 
-  Serial.end();
-  // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
-  pinMode(SHORT_COLUMNS, OUTPUT); 
-  digitalWrite(SHORT_COLUMNS, HIGH); // Active low
   scanMatrix();
-  Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
-
 
   // Switch program state when btn41 is pressed
   if ((buttonStates & buttonBitMask(4, 1)) && !(lastButtonStates & buttonBitMask(4, 1))) {
@@ -198,6 +195,12 @@ void recordingProgram() {
 
 // Function for reading the buttons
 void scanMatrix() {
+  // Serial doesn't work when SHORT_COLUMNS is high. Therefore, to scan the button matrix, serial has to be disabled. 
+  Serial.end();
+  // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
+  pinMode(SHORT_COLUMNS, OUTPUT); 
+  digitalWrite(SHORT_COLUMNS, HIGH); // Active low
+  
   // IR_SEND_PIN is used for both button matrix and sending IR. When sending IR-codes it needs to be inverted since the IR LED is active low. 
   pinMode(IR_SEND_PIN, INPUT_PULLUP);
   PORTA.PIN4CTRL &= ~PORT_INVEN_bm;
@@ -252,6 +255,8 @@ void scanMatrix() {
   PORTA.PIN4CTRL |= PORT_INVEN_bm;
   pinMode(IR_SEND_PIN, OUTPUT);
   digitalWrite(IR_SEND_PIN, HIGH);
+
+  Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
 }
 
 // Procedure to prepare for sleep and start sleeping
