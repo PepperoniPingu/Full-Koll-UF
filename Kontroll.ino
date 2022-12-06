@@ -399,7 +399,7 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, 
           tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress * (i+1) + 1 + j);
         }
       } 
-      memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData));  // Return the recordings to the pointer given in the arguments 
+      memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData));   // Return the recordings to the pointer given in the arguments 
       return tempNumberOfRecordings;                              // Return number of recordings
       
     } else {
