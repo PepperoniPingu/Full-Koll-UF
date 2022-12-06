@@ -170,7 +170,7 @@ void remoteProgram() {
         Serial.print("Recordings: ");
         Serial.println(recordingsOnButton, HEX);
         IRData buttonPacket[recordingsOnButton];
-        readButtonPacket(buttonPacket, i, j);
+        readButtonPacket(buttonPacket, i, j); // Read button packet
         //Serial.println(buttonPacket[0].protocol);
         Wire.end();
         pinMode(PIN_PB0, OUTPUT);
@@ -396,7 +396,7 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, 
         
         // Loop through every byte in said recording and save it
         for (unsigned char j = 0; j < sizeof(IRData); j++) {
-          tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress + 1 + j);
+          tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress * (i+1) + 1 + j);
         }
       } 
       memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData));  // Return the recordings to the pointer given in the arguments 
