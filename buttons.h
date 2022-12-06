@@ -25,7 +25,7 @@
 
 
 // A way to dynamically address the defined amount of shifting
-const unsigned long buttonShiftLeft[5][4] = {
+const unsigned char buttonShiftLeft[5][4] = {
   {btn00ShiftLeft, btn01ShiftLeft, btn02ShiftLeft, btn03ShiftLeft},
   {btn10ShiftLeft, btn11ShiftLeft, btn12ShiftLeft, btn13ShiftLeft},
   {btn20ShiftLeft, btn21ShiftLeft, btn22ShiftLeft, btn23ShiftLeft},
@@ -33,7 +33,17 @@ const unsigned long buttonShiftLeft[5][4] = {
   {btn40ShiftLeft, btn41ShiftLeft, btn42ShiftLeft, btn43ShiftLeft}
 };
 
+const unsigned char buttonInDecimal[20] = {
+  btn00ShiftLeft, btn01ShiftLeft, btn02ShiftLeft, btn03ShiftLeft,
+  btn10ShiftLeft, btn11ShiftLeft, btn12ShiftLeft, btn13ShiftLeft,
+  btn20ShiftLeft, btn21ShiftLeft, btn22ShiftLeft, btn23ShiftLeft,
+  btn30ShiftLeft, btn31ShiftLeft, btn32ShiftLeft, btn33ShiftLeft,
+  btn40ShiftLeft, btn41ShiftLeft, btn42ShiftLeft, btn43ShiftLeft
+};
+
 // Function to get the bit mask for a button
 unsigned long buttonBitMask(unsigned char row, unsigned char column);
+
+void buttonDecimalToMatrice(unsigned char *row, unsigned char *column, unsigned char tempButtonInDecimal);
 
 #endif

@@ -4,3 +4,8 @@
 unsigned long buttonBitMask(unsigned char row, unsigned char column) {
   return 1UL << buttonShiftLeft[row][column];
 }
+
+void buttonDecimalToMatrice(unsigned char *row, unsigned char *column, unsigned char tempButtonInDecimal) {
+  *row = tempButtonInDecimal / 5;
+  *column = tempButtonInDecimal % 5;
+}
