@@ -169,6 +169,11 @@ void remoteProgram() {
         }
         Serial.print("Recordings: ");
         Serial.println(recordingsOnButton, HEX);
+        IRData buttonPacket[recordingsOnButton];
+        for (unsigned char k = 0; k < recordingsOnButton; k++) {
+          readButtonPacket(buttonPacket, i, j);
+        }
+        //Serial.println(buttonPacket[0].protocol);
         Wire.end();
         pinMode(PIN_PB0, OUTPUT);
         digitalWrite(PIN_PB0, HIGH);
@@ -193,10 +198,9 @@ void recordingProgram() {
   for (unsigned char i = 0; i < sizeof(row); i++) {
     for (unsigned char j = 0; j < sizeof(column); j++) {
       if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
-        Serial.print("Knapp tryckt ");
+        Serial.print("Button pressed ");
         Serial.print(i, DEC);
         Serial.println(j, DEC);
-        Serial.println(buttonStates, BIN); 
       }
     }
   }
@@ -206,7 +210,8 @@ void recordingProgram() {
       //IrReceiver.printIRResultMinimal(&Serial);
       Serial.println();
       Wire.begin();
-      //writeButtonPacket(IrReceiver.read(), 1, lastPressedButton[0], lastPressedButton[1]);
+      IRData recievedIRData[1] = {*IrReceiver.read()};
+      writeButtonPacket(recievedIRData, 1, lastPressedButton[0], lastPressedButton[1]);
       Wire.end();
       pinMode(PIN_PB0, OUTPUT);
       digitalWrite(PIN_PB0, HIGH);
@@ -375,7 +380,7 @@ unsigned int buttonPacketAddress(unsigned char tempRow, unsigned char tempColumn
 
 // First byte of the button packet contains the number of recordings
 // Second byte and after contains the first recording's IRData
-unsigned char readButtonPacket(IRData* buttonPacketPtr[], unsigned char tempRow, unsigned char tempColumn) {
+unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, unsigned char tempColumn) {
 
   unsigned int tempButtonPacketAddress = buttonPacketAddress(tempRow, tempColumn); // Find the address of the button packet
 
@@ -436,7 +441,7 @@ unsigned char readButtonPacketLength(unsigned char tempRow, unsigned char tempCo
 
 
 // Writes a button packet
-void writeButtonPacket(IRData* tempIRData[], unsigned char recordings, unsigned char tempRow, unsigned char tempColumn) {
+void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned char tempRow, unsigned char tempColumn) {
 
   unsigned int tempAddress = scanEmptyEEPROMAddresses(sizeof(IRData) * recordings + 1); // Find an empty address space where the packet can be put
   // TODO: add error handling if given tempAddress is not allowed, for example 0
@@ -493,7 +498,7 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
     }
   }
   // Debug
-  for (unsigned char i = 0; i < tempNumberOfButtons - 1; i++) {
+  for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
     Serial.println(packetAddresses[i], HEX);
   }
 
