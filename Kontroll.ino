@@ -439,6 +439,8 @@ unsigned char readButtonPacketLength(unsigned char tempRow, unsigned char tempCo
 void writeButtonPacket(IRData* tempIRData[], unsigned char recordings, unsigned char tempRow, unsigned char tempColumn) {
 
   unsigned int tempAddress = scanEmptyEEPROMAddresses(sizeof(IRData) * recordings + 1); // Find an empty address space where the packet can be put
+  // TODO: add error handling if given tempAddress is not allowed, for example 0
+  
   // Update button info. Change the address to the new found one.
   writeEEPROM(buttonInfoAddress(tempRow, tempColumn), tempAddress >> 8);  
   writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, tempAddress); 
@@ -458,20 +460,23 @@ void writeButtonPacket(IRData* tempIRData[], unsigned char recordings, unsigned 
 // Find the smallest address space where the bytes can fit
 unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
   const unsigned char tempNumberOfButtons = sizeof(row) * sizeof(column);
-  unsigned int packetAddresses[tempNumberOfButtons + 1];
-  unsigned int packetLengths[tempNumberOfButtons + 1];
+  unsigned int packetAddresses[tempNumberOfButtons + 2];
+  unsigned int packetLengths[tempNumberOfButtons + 2];
 
   // Retrieve addresses and lengths of all packets
-  for (unsigned char i = 0; i < tempNumberOfButtons - 1; i++) {
+  for (unsigned char i = 0; i < tempNumberOfButtons - 2; i++) {
     unsigned char tempRow;
     unsigned char tempColumn;
     buttonDecimalToMatrice(&tempRow, &tempColumn, i); // Remake button 0 to 19 into row and column
     packetAddresses[i] = buttonPacketAddress(tempRow, tempColumn); // Retreive address of packet
     packetLengths[i] = readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
   }
-  // Make the last entry the end of the chip
-  packetAddresses[tempNumberOfButtons + 1] = MAX_EEPROM_ADDRESS;
-  packetLengths[tempNumberOfButtons + 1] = 0;
+  // Make an entry for the sapce occupied by the button indo data
+  packetAddresses[tempNumberOfButtons + 1] = 0;
+  packetLengths[tempNumberOfButtons + 1] = buttonInfoAddress(ROWS - 1, COLUMNS - 1) + 1;
+  // Make an entry the end of the chip
+  packetAddresses[tempNumberOfButtons + 2] = MAX_EEPROM_ADDRESS;
+  packetLengths[tempNumberOfButtons + 2] = 0;
 
   // Sort addresses and lengths, small to large
   for (unsigned char i = 0; i < tempNumberOfButtons - 1; i++) {
