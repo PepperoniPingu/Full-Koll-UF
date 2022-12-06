@@ -44,6 +44,7 @@ const unsigned char buttonInDecimal[20] = {
 // Function to get the bit mask for a button
 unsigned long buttonBitMask(unsigned char row, unsigned char column);
 
-void buttonDecimalToMatrice(unsigned char *row, unsigned char *column, unsigned char tempButtonInDecimal);
+// Remake button 0 to 19 into row and column
+void buttonDecimalToMatrice(unsigned char* row, unsigned char* column, unsigned char tempButtonInDecimal);
 
 #endif
