@@ -170,9 +170,7 @@ void remoteProgram() {
         Serial.print("Recordings: ");
         Serial.println(recordingsOnButton, HEX);
         IRData buttonPacket[recordingsOnButton];
-        for (unsigned char k = 0; k < recordingsOnButton; k++) {
-          readButtonPacket(buttonPacket, i, j);
-        }
+        readButtonPacket(buttonPacket, i, j);
         //Serial.println(buttonPacket[0].protocol);
         Wire.end();
         pinMode(PIN_PB0, OUTPUT);
