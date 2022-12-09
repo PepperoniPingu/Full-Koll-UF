@@ -363,13 +363,12 @@ unsigned int buttonInfoAddress(unsigned char tempRow, unsigned char tempColumn) 
 unsigned int buttonPacketAddress(unsigned char tempRow, unsigned char tempColumn) {
 
   // Read the adress of the button packet
-  unsigned int tempButtonPacketAddress;
-  tempButtonPacketAddress = readEEPROM(buttonInfoAddress(tempRow, tempColumn)) << 8;
+  unsigned int tempButtonPacketAddress = 0;
+  tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn)) << 8;
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1);
 
   // If the addres to the buttonPacket is bigger than available memory or it is in the button info region (first 40 bytes), reset the info packet and return 0. 
   if (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1 || (tempButtonPacketAddress <= (buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 1) && tempButtonPacketAddress != 0)) {
-    Serial.println("Här!");
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn), 0);
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, 0);
     tempButtonPacketAddress = 0;
@@ -475,7 +474,7 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
     unsigned char tempColumn;
     buttonDecimalToMatrice(&tempRow, &tempColumn, i); // Remake button 0 to 19 into row and column
     packetAddresses[i] = buttonPacketAddress(tempRow, tempColumn); // Retreive address of packet
-    packetLengths[i] = 20; // readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
+    packetLengths[i] = readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
   }
   // Make an entry for the sapce occupied by the button info data
   packetAddresses[tempNumberOfButtons] = 0;
@@ -501,6 +500,8 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
 
   // Debug, prints address spaces
   for (unsigned char i = 0; i < tempNumberOfButtons + 1; i++) {
+    Serial.print(i);
+    Serial.print(" : ");
     Serial.print(packetAddresses[i] + packetLengths[i], DEC);
     Serial.print(" -> ");
     Serial.println(packetAddresses[i + 1], DEC);

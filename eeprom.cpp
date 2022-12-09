@@ -7,8 +7,8 @@ void writeEEPROM(unsigned int memoryAddress, unsigned char data) {
     Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write(memoryAddress >> 8);   // MSB
     Wire.write(memoryAddress & 0xFF);
-    Wire.write(data);
-    if (Wire.endTransmission(true) != 0) {
+    Serial.println(data, DEC);
+    if (Wire.endTransmission(true) == 0) {
       successfulSend = 1;
     }
   }
