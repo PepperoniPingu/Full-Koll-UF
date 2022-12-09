@@ -1,11 +1,9 @@
 #include "eeprom.h"
 
-#define I2C_RETRIES 50
-
 void writeEEPROM(unsigned int memoryAddress, unsigned char data) {
   bool successfulSend = 0;
   // Try to send data. Can take a couple retries because the EEPROM may be busy with last request. 
-  for (int i = 0; i < I2C_RETRIES && !succesfulSend; i++) { 
+  for (int i = 0; i < I2C_RETRIES && !successfulSend; i++) { 
     Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write(memoryAddress >> 8);   // MSB
     Wire.write(memoryAddress & 0xFF);
@@ -28,7 +26,7 @@ unsigned char readEEPROM(unsigned int memoryAddress) {
   for (int i = 0; i < I2C_RETRIES && !Wire.available(); i++) {
     Serial.println("Stuck");
   }
-  if (Wire.available) {
+  if (Wire.available()) {
     rdata = Wire.read(); // Read reply. 
   }
 

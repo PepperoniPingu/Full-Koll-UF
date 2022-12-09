@@ -16,10 +16,8 @@
 #include "buttons.h"
 #include "eeprom.h"
 
-#define ROWS 5
-#define COLUMNS
-const unsigned char row[ROWS] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
-const unsigned char column[COLUMNS] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
+const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
+const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
 
 unsigned long buttonStates = 0UL;
 unsigned long lastButtonStates = 0UL;
@@ -156,9 +154,11 @@ void remoteProgram() {
         Serial.print("Bit mask: ");
         Serial.println(buttonStates, BIN);
 
-        Wire.begin();
+        Wire.begin();    
+        unsigned int tempEmptyEEPROMAddress = scanEmptyEEPROMAddresses(178);
         Serial.print("Empty address: ");
-        Serial.println(scanEmptyEEPROMAddresses(178), HEX);
+        Serial.println(tempEmptyEEPROMAddress, DEC);
+        
         unsigned char recordingsOnButton = readEEPROM(buttonPacketAddress(i, j));
         if (recordingsOnButton == 0xFF) {
           writeEEPROM(buttonInfoAddress(i, j), 0);
@@ -171,7 +171,8 @@ void remoteProgram() {
         Serial.println(recordingsOnButton, HEX);
         IRData buttonPacket[recordingsOnButton];
         readButtonPacket(buttonPacket, i, j); // Read button packet
-        //Serial.println(buttonPacket[0].protocol);
+        Serial.print("Protokoll: ");
+        Serial.println(buttonPacket[0].protocol);
         Wire.end();
         pinMode(PIN_PB0, OUTPUT);
         digitalWrite(PIN_PB0, HIGH);
@@ -353,7 +354,8 @@ void wakeProcedure() {
 // number of signals, protocol type and protocol data are stored. The info is 2 bytes which are the address of the button packet. 
 // This function returns the address for the permanent address for the button info. 
 unsigned int buttonInfoAddress(unsigned char tempRow, unsigned char tempColumn) {
-  return 2 * buttonShiftLeft[tempRow][tempColumn];
+  unsigned int tempInfoAddress = 2 * buttonShiftLeft[tempRow][tempColumn];
+  return tempInfoAddress;
 }
 
 
@@ -366,7 +368,8 @@ unsigned int buttonPacketAddress(unsigned char tempRow, unsigned char tempColumn
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1);
 
   // If the addres to the buttonPacket is bigger than available memory or it is in the button info region (first 40 bytes), reset the info packet and return 0. 
-  if (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1 || (tempButtonPacketAddress <= (buttonInfoAddress(ROWS - 1, COLUMNS - 1) + 1) && tempButtonPacketAddress != 0)) {
+  if (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1 || (tempButtonPacketAddress <= (buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 1) && tempButtonPacketAddress != 0)) {
+    Serial.println("Här!");
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn), 0);
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, 0);
     tempButtonPacketAddress = 0;
@@ -467,23 +470,23 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
   unsigned int packetLengths[tempNumberOfButtons + 2];
 
   // Retrieve addresses and lengths of all packets
-  for (unsigned char i = 0; i < tempNumberOfButtons - 2; i++) {
+  for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
     unsigned char tempRow;
     unsigned char tempColumn;
     buttonDecimalToMatrice(&tempRow, &tempColumn, i); // Remake button 0 to 19 into row and column
     packetAddresses[i] = buttonPacketAddress(tempRow, tempColumn); // Retreive address of packet
-    packetLengths[i] = readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
+    packetLengths[i] = 20; // readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
   }
-  // Make an entry for the sapce occupied by the button indo data
-  packetAddresses[tempNumberOfButtons + 1] = 0;
-  packetLengths[tempNumberOfButtons + 1] = buttonInfoAddress(ROWS - 1, COLUMNS - 1) + 1;
+  // Make an entry for the sapce occupied by the button info data
+  packetAddresses[tempNumberOfButtons] = 0;
+  packetLengths[tempNumberOfButtons] = buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 2;
   // Make an entry the end of the chip
-  packetAddresses[tempNumberOfButtons + 2] = MAX_EEPROM_ADDRESS;
-  packetLengths[tempNumberOfButtons + 2] = 0;
+  packetAddresses[tempNumberOfButtons + 1] = MAX_EEPROM_ADDRESS;
+  packetLengths[tempNumberOfButtons + 1] = 0;
 
   // Sort addresses and lengths, small to large
-  for (unsigned char i = 0; i < tempNumberOfButtons - 1; i++) {
-    for (unsigned char j = i + 1; j < tempNumberOfButtons; j++) {
+  for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
+    for (unsigned char j = i + 1; j < tempNumberOfButtons + 1; j++) {
       if (packetAddresses[i] > packetAddresses[j]) {
         // Swapping with smallest element of array
         unsigned int temp = packetAddresses[j];
@@ -495,9 +498,12 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
       }
     }
   }
-  // Debug
-  for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
-    Serial.println(packetAddresses[i], HEX);
+
+  // Debug, prints address spaces
+  for (unsigned char i = 0; i < tempNumberOfButtons + 1; i++) {
+    Serial.print(packetAddresses[i] + packetLengths[i], DEC);
+    Serial.print(" -> ");
+    Serial.println(packetAddresses[i + 1], DEC);
   }
 
   // Find the smallest space where the bytes will fit and return that address
@@ -505,11 +511,11 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
   unsigned int addressSpace = 0;
   unsigned int bestAddress = 0;
   // Iterate through every button packet
-  for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
+  for (unsigned char i = 0; i < tempNumberOfButtons + 1; i++) {
     addressSpace = packetAddresses[i+1] - (packetAddresses[i] + packetLengths[i]); // Save the address of the empty space
     
     // Compare the empty space, if it is large enough but also the smallest one discover yet, save it. 
-    if (addressSpace <= bytesRequired && addressSpace < shortestSpaceAddress) {
+    if (addressSpace >= bytesRequired && addressSpace < shortestSpaceAddress) {
       shortestSpaceAddress = addressSpace;
       bestAddress = packetAddresses[i] + packetLengths[i];
     }
