@@ -155,24 +155,13 @@ void remoteProgram() {
         Serial.println(buttonStates, BIN);
 
         Wire.begin();    
-        unsigned int tempEmptyEEPROMAddress = scanEmptyEEPROMAddresses(178);
-        Serial.print("Empty address: ");
-        Serial.println(tempEmptyEEPROMAddress, DEC);
-        
         unsigned char recordingsOnButton = readEEPROM(buttonPacketAddress(i, j));
-        if (recordingsOnButton == 0xFF) {
-          writeEEPROM(buttonInfoAddress(i, j), 0);
-          writeEEPROM(buttonInfoAddress(i, j) + 1, 0);
-          writeEEPROM(buttonPacketAddress(i, j), 0);
-          writeEEPROM(buttonPacketAddress(i, j) + 1, 0);
-          recordingsOnButton = 0;
-        }
         Serial.print("Recordings: ");
-        Serial.println(recordingsOnButton, HEX);
+        Serial.println(recordingsOnButton, DEC);
         IRData buttonPacket[recordingsOnButton];
         readButtonPacket(buttonPacket, i, j); // Read button packet
         Serial.print("Protokoll: ");
-        Serial.println(buttonPacket[0].protocol);
+        Serial.println(buttonPacket[0].protocol);        
         Wire.end();
         pinMode(PIN_PB0, OUTPUT);
         digitalWrite(PIN_PB0, HIGH);
@@ -210,7 +199,7 @@ void recordingProgram() {
       Serial.println();
       Wire.begin();
       IRData recievedIRData[1] = {*IrReceiver.read()};
-      writeButtonPacket(recievedIRData, 1, lastPressedButton[0], lastPressedButton[1]);
+      writeButtonPacket(recievedIRData, sizeof(recievedIRData) / sizeof(IRData), lastPressedButton[0], lastPressedButton[1]);
       Wire.end();
       pinMode(PIN_PB0, OUTPUT);
       digitalWrite(PIN_PB0, HIGH);
@@ -367,8 +356,10 @@ unsigned int buttonPacketAddress(unsigned char tempRow, unsigned char tempColumn
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn)) << 8;
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1);
 
-  // If the addres to the buttonPacket is bigger than available memory or it is in the button info region (first 40 bytes), reset the info packet and return 0. 
-  if (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1 || (tempButtonPacketAddress <= (buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 1) && tempButtonPacketAddress != 0)) {
+  // Reset the info packet and return 0 if one of following conditions is true: 
+  if (  (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1) ||                                                        // The addres to the buttonPacket is bigger than available memory
+        (tempButtonPacketAddress <= (buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 1) && tempButtonPacketAddress != 0) ||  // The address is in the button info region (first 40 bytes)
+        (readEEPROM(tempButtonPacketAddress) == 0)) {                                                                                  // There are no recordings here and therefore the packet is incomplete
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn), 0);
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, 0);
     tempButtonPacketAddress = 0;
@@ -428,7 +419,7 @@ unsigned char readButtonPacketLength(unsigned char tempRow, unsigned char tempCo
 
     // Take action if there are 0 recordings 
     if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
-        return tempNumberOfRecordings; // Return number of recordings
+        return tempNumberOfRecordings * sizeof(IRData) + 1; // Return packet length
     } else {
       // If there are 0 recordings here, reset the info data
       unsigned int tempButtonInfoAddress = buttonInfoAddress(tempRow, tempColumn);
@@ -444,6 +435,10 @@ unsigned char readButtonPacketLength(unsigned char tempRow, unsigned char tempCo
 void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned char tempRow, unsigned char tempColumn) {
 
   unsigned int tempAddress = scanEmptyEEPROMAddresses(sizeof(IRData) * recordings + 1); // Find an empty address space where the packet can be put
+  Serial.print("Writing ");
+  Serial.print(recordings, DEC);
+  Serial.print(" recordings to address ");
+  Serial.println(tempAddress, DEC);
   // TODO: add error handling if given tempAddress is not allowed, for example 0
   
   // Update button info. Change the address to the new found one.
@@ -451,19 +446,26 @@ void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned c
   writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, tempAddress); 
 
   // Remake the array of IRData to array of bytes
-  unsigned char tempRawData[sizeof(IRData)];
-  memcpy(&tempRawData, tempIRData, sizeof(IRData));
+  unsigned char tempRawData[sizeof(IRData) * recordings];
+  memcpy(&tempRawData, tempIRData, sizeof(IRData) * recordings);
 
   writeEEPROM(tempAddress, recordings); // First byte is number of recordings saved
   // Write the other bytes
-  for (unsigned int i = 0; i < sizeof(IRData); i++) {
+  for (unsigned int i = 0; i < sizeof(tempRawData); i++) {
     writeEEPROM(tempAddress + i + 1, tempRawData[i]);
+    /*Serial.print("Writing ");
+    Serial.print(tempRawData[i], HEX);
+    Serial.print(" to address ");
+    Serial.println(tempAddress + 1 + i, DEC);*/
   }
 }
 
 
 // Find the smallest address space where the bytes can fit
 unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
+
+  // TODO: Make it so that spaces can't be nagative and so that they can't overlap
+  
   const unsigned char tempNumberOfButtons = sizeof(row) * sizeof(column);
   unsigned int packetAddresses[tempNumberOfButtons + 2];
   unsigned int packetLengths[tempNumberOfButtons + 2];
@@ -472,8 +474,8 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
   for (unsigned char i = 0; i < tempNumberOfButtons; i++) {
     unsigned char tempRow;
     unsigned char tempColumn;
-    buttonDecimalToMatrice(&tempRow, &tempColumn, i); // Remake button 0 to 19 into row and column
-    packetAddresses[i] = buttonPacketAddress(tempRow, tempColumn); // Retreive address of packet
+    buttonDecimalToMatrice(&tempRow, &tempColumn, i);               // Remake button 0 to 19 into row and column
+    packetAddresses[i] = buttonPacketAddress(tempRow, tempColumn);  // Retreive address of packet
     packetLengths[i] = readButtonPacketLength(tempRow, tempColumn); // Retrieve length of packet
   }
   // Make an entry for the sapce occupied by the button info data

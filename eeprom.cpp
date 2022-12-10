@@ -7,7 +7,7 @@ void writeEEPROM(unsigned int memoryAddress, unsigned char data) {
     Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write(memoryAddress >> 8);   // MSB
     Wire.write(memoryAddress & 0xFF);
-    Serial.println(data, DEC);
+    Wire.write(data);
     if (Wire.endTransmission(true) == 0) {
       successfulSend = 1;
     }
@@ -23,9 +23,7 @@ unsigned char readEEPROM(unsigned int memoryAddress) {
   } while (Wire.endTransmission(false)); // Send out bytes but don't send a stop bit
   Wire.requestFrom(EEPROM_I2C_ADDRESS, 1, true);
   // Wait for EEPROM to reply. Only try 50 times
-  for (int i = 0; i < I2C_RETRIES && !Wire.available(); i++) {
-    Serial.println("Stuck");
-  }
+  for (int i = 0; i < I2C_RETRIES && !Wire.available(); i++) {}
   if (Wire.available()) {
     rdata = Wire.read(); // Read reply. 
   }
