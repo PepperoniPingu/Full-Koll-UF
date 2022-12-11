@@ -8,7 +8,7 @@
 
 #define NUMBER_OF_REPEATS 3
 
-#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
+//#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
 #define SERIAL_SPEED 115200
 
 #include <IRremote.hpp>
@@ -87,7 +87,7 @@ void setup() {
 }
 
 void loop() {
-   scanMatrix();
+  scanMatrix();
 
   // Switch program state when btn41 is pressed
   if ((buttonStates & buttonBitMask(4, 1)) && !(lastButtonStates & buttonBitMask(4, 1))) {
@@ -177,12 +177,6 @@ void remoteProgram() {
         if (recordingsOnButton) {
           IRData buttonPacket[recordingsOnButton];
           readButtonPacket(buttonPacket, i, j); // Read button packet
-                
-          Wire.end();
-          pinMode(PIN_PB0, OUTPUT);
-          digitalWrite(PIN_PB0, HIGH);
-          pinMode(PIN_PB1, OUTPUT);
-          digitalWrite(PIN_PB1, HIGH);
   
           #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
             for (unsigned char k = 0; k < recordingsOnButton; k++) {
@@ -193,24 +187,29 @@ void remoteProgram() {
             Serial.println(buttonPacket[0].protocol);  
           #endif
         }
+
+        Wire.end();
+        pinMode(PIN_PB0, OUTPUT);
+        digitalWrite(PIN_PB0, HIGH);
+        pinMode(PIN_PB1, OUTPUT);
+        digitalWrite(PIN_PB1, HIGH);
       }
     }
   }
 
-  /*// Only sleep if no buttons are pressed
+  // Only sleep if no buttons are pressed
   if (buttonStates == 0UL) {
     #ifdef DEBUG_PRINTING
       Serial.println("Sleep initiating...\n");
     #endif
     
     sleep();
-    
     wakeProcedure();
     
     #ifdef DEBUG_PRINTING
       Serial.println("Waking up...");
     #endif
-  }*/
+  }
 }
 
 
@@ -339,11 +338,14 @@ void scanMatrix() {
 
 // Procedure to prepare for sleep and start sleeping
 void sleep() {
+  Wire.end(); // Should not be needed but if it is not done before sleeping, some of the buttons will not work for waking. 
+  
   pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
                                       // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
 
   // Set all rows to low so a falling interrupt can be generated when button is pressed 
   for (unsigned char i = 0; i < sizeof(row); i++) {
+    pinMode(row[i], OUTPUT);
     digitalWrite(row[i], LOW);
   }
 
@@ -354,6 +356,11 @@ void sleep() {
   // Short column 0, 2 and 3 so that they all connect to PIN_PA6 and all buttons can generate interrupts. 
   pinMode(SHORT_COLUMNS, OUTPUT);
   digitalWrite(SHORT_COLUMNS, LOW); // Active low
+
+  // Set every column as input so that it is not interfering 
+  for (unsigned char i = 0; i < sizeof(column); i++) {
+    pinMode(column[i], INPUT_PULLUP);
+  }
   
   PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2
   PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
@@ -366,8 +373,6 @@ void sleep() {
 ISR(PORTA_PORT_vect) {
   byte flags = PORTA.INTFLAGS;
   PORTA.INTFLAGS = flags; //clear flags
-
-  SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
   
   // Disable interrupt on PIN_PA2 and PIN_PA6. Needed in case the button bounces and we don't want to trigger the interrupt when it's already running. Pull ups still enabled.
   PORTA.PIN2CTRL = 0b00001000;
@@ -375,7 +380,8 @@ ISR(PORTA_PORT_vect) {
 }
 
 // Procedure when waking up to set things back to normal and enable peripherals
-void wakeProcedure() {  
+void wakeProcedure() {
+  SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
 
   // Revert rows to high
   for (unsigned char i = 0; i < sizeof(row); i++) {
