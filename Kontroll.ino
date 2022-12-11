@@ -6,8 +6,8 @@
 
 #define SHORT_COLUMNS PIN_PB2
 
-#define NUMBER_OF_REPEATS 3
-#define WAIT_BETWEEN_RECORDINGS 1000 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
+#define NUMBER_OF_REPEATS 1U
+#define WAIT_BETWEEN_RECORDINGS 500 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
 
 //#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
 #define SERIAL_SPEED 115200
@@ -301,6 +301,9 @@ void recordingProgram() {
     }
     buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
     
+    // Mark old packet as non-existing
+    writeEEPROM(buttonInfoAddress(lastPressedButton[0], lastPressedButton[1]), 0);
+    writeEEPROM(buttonInfoAddress(lastPressedButton[0], lastPressedButton[1]) + 1, 0);
     // Write the updated packet
     writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton[0], lastPressedButton[1]);
     Wire.end();
