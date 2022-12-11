@@ -7,6 +7,7 @@
 #define SHORT_COLUMNS PIN_PB2
 
 #define NUMBER_OF_REPEATS 3
+#define WAIT_BETWEEN_RECORDINGS 1000 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
 
 //#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
 #define SERIAL_SPEED 115200
@@ -18,10 +19,13 @@
 
 const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
 const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
-
 unsigned long buttonStates = 0UL;
 unsigned long lastButtonStates = 0UL;
 char lastPressedButton[2] = { -1, -1};
+
+// This defines which buttons and in which order you need to press them in order to switch program mode. 
+const unsigned char switchStateButtonSequence[] = {btn00ShiftLeft, btn10ShiftLeft, btn20ShiftLeft, btn30ShiftLeft, btn40ShiftLeft};
+unsigned char progressInButtonSequence = 0;
 
 // The different states the device can be in
 enum ProgramState : unsigned char {
@@ -33,6 +37,11 @@ enum ProgramState : unsigned char {
 // The current state
 ProgramState programState = remote;
 
+unsigned long lastMillisButtonRecordingState = 0UL; // Only works in recording when the device doesn't go into sleeping
+#define WAIT_AFTER_BUTTON 500
+
+unsigned long buttonsToEdit = 0UL;  // When recording state is entered, all buttons previous recordings to will replaced with new recording. 
+                                    // This variable is exists to see if the recording should replace previous made recording or if the packet should be edited. 
 
 void setup() {
 
@@ -86,11 +95,41 @@ void setup() {
   }
 }
 
+
 void loop() {
   scanMatrix();
+  
+  // If a button has just been pressed
+  if (buttonStates && buttonStates != lastButtonStates) {
 
-  // Switch program state when btn41 is pressed
-  if ((buttonStates & buttonBitMask(4, 1)) && !(lastButtonStates & buttonBitMask(4, 1))) {
+    // Only used in recording state
+    lastMillisButtonRecordingState = millis();
+    
+    // If the right button in the sequence to switch program state is pressed, move on to check for the next button in the sequence
+    if (buttonStates & (1UL << switchStateButtonSequence[0])) {
+      progressInButtonSequence = 1;
+    }
+    else if (buttonStates & (1UL << switchStateButtonSequence[progressInButtonSequence])) {
+      progressInButtonSequence++;
+      
+    } else { // If a button has just been pressed but it is not the next one in the  right sequence
+      progressInButtonSequence = 0;
+    }
+  }
+
+  #ifdef DEBUG_PRINTING
+    if (buttonStates && buttonStates != lastButtonStates) {
+      Serial.print("Progress in sequence to switch program state: ");
+      Serial.print(progressInButtonSequence, DEC);
+      Serial.print("/"),
+      Serial.println(sizeof(switchStateButtonSequence), DEC);
+    }
+  #endif
+
+  // If the last button of the state switching sequence has been pressed, change program state. 
+  if (progressInButtonSequence >= sizeof(switchStateButtonSequence)) {
+    progressInButtonSequence = 0; // Reset progress in sequence
+
     // Shutdown tasks
     switch (programState) {
       case remote:
@@ -100,6 +139,7 @@ void loop() {
         IrReceiver.stop();
         lastPressedButton[0] = -1;
         lastPressedButton[1] = -1;
+        buttonsToEdit = 0UL;
         break;
 
       default:
@@ -125,6 +165,7 @@ void loop() {
         IrReceiver.start();
         lastPressedButton[0] = -1;
         lastPressedButton[1] = -1;
+        buttonsToEdit = 0UL;
         
         #ifdef DEBUG_PRINTING
           Serial.println("Switching to recording...");
@@ -135,7 +176,6 @@ void loop() {
         break;
     }
   }
-
 
   // Chose program routine
   switch (programState) {
@@ -178,14 +218,23 @@ void remoteProgram() {
           IRData buttonPacket[recordingsOnButton];
           readButtonPacket(buttonPacket, i, j); // Read button packet
   
-          #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
+            // Loop through every recording and send it
             for (unsigned char k = 0; k < recordingsOnButton; k++) {
-              IrSender.write(&buttonPacket[k], NUMBER_OF_REPEATS);
+              #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
+                IrSender.write(&buttonPacket[k], NUMBER_OF_REPEATS); // Send recording
+              #endif
+
+              #ifdef DEBUG_PRINTING
+                Serial.print("Protocol: ");
+                Serial.print(buttonPacket[k].protocol, DEC); 
+                Serial.print(" Command: ");
+                Serial.println(buttonPacket[k].command, DEC);
+              #endif 
+              
+              if (recordingsOnButton > 1) {
+                delay(WAIT_BETWEEN_RECORDINGS); // Wait before sending next one
+              }
             }
-          #else 
-            Serial.print("Protocol: ");
-            Serial.println(buttonPacket[0].protocol);  
-          #endif
         }
 
         Wire.end();
@@ -213,55 +262,77 @@ void remoteProgram() {
 }
 
 
+// TODO: Make it possible to store multiple recordings on one button 
 void recordingProgram() {
   #ifdef DEBUG_PRINTING
     for (unsigned char i = 0; i < sizeof(row); i++) {
       for (unsigned char j = 0; j < sizeof(column); j++) {
         if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
-          Serial.print("Button pressed ");
+          Serial.print("\nButton pressed ");
           Serial.print(i, DEC);
           Serial.println(j, DEC);
-          Serial.println();
         }
       }
     }
   #endif 
 
-  // If there is recieved data and a button was pressed, decode
-  if (IrReceiver.decode() && (lastPressedButton[0] != -1) && (lastPressedButton[1] != -1)) {
-      Wire.begin();
-      
-      IRData recievedIRData[1] = {*IrReceiver.read()};
-      writeButtonPacket(recievedIRData, sizeof(recievedIRData) / sizeof(IRData), lastPressedButton[0], lastPressedButton[1]);
-      
-      Wire.end();
-      pinMode(PIN_PB0, OUTPUT);
-      digitalWrite(PIN_PB0, HIGH);
-      pinMode(PIN_PB1, OUTPUT);
-      digitalWrite(PIN_PB1, HIGH);
+  // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
+  if (IrReceiver.decode() && (lastPressedButton[0] != -1) && (lastPressedButton[1] != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {
+    Wire.begin();
+
+    unsigned char numberOfRecordings = 1;
+    if (buttonsToEdit & buttonBitMask(lastPressedButton[0], lastPressedButton[1])) {
+      numberOfRecordings = readRecordingsOnButton(lastPressedButton[0], lastPressedButton[1]) + 1;  
 
       #ifdef DEBUG_PRINTING
-        Serial.print("IRResults: ");
-        IrReceiver.printIRResultMinimal(&Serial);
-        Serial.print("\nRecording saved on button  ");
-        Serial.print(lastPressedButton[0], DEC);
-        Serial.println(lastPressedButton[1], DEC);
-        Serial.println();
+        Serial.println("Adding to button packet");
       #endif
+    } else {
+      buttonsToEdit |= buttonBitMask(lastPressedButton[0], lastPressedButton[1]);
 
-      lastPressedButton[0] = -1;
-      lastPressedButton[1] = -1;
-
-      IrReceiver.resume();
-
-      while (IrReceiver.decode()) {
-        IrReceiver.resume();
-          #ifdef DEBUG_PRINTING
-          IrReceiver.printIRResultMinimal(&Serial);
-          Serial.println();
-        #endif
-      }
+      #ifdef DEBUG_PRINTING
+        Serial.println("Creating new button packet. Discarding old recordings on button. ");
+      #endif
     }
+    IRData buttonRecordings[numberOfRecordings];
+
+    if (numberOfRecordings > 1) {
+      readButtonPacket(buttonRecordings, lastPressedButton[0], lastPressedButton[1]); // Read the existing button packet
+    }
+    buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
+    
+    // Write the updated packet
+    writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton[0], lastPressedButton[1]);
+    Wire.end();
+    pinMode(PIN_PB0, OUTPUT);
+    digitalWrite(PIN_PB0, HIGH);
+    pinMode(PIN_PB1, OUTPUT);
+    digitalWrite(PIN_PB1, HIGH);
+
+    #ifdef DEBUG_PRINTING
+      Serial.print("IRResults: ");
+      IrReceiver.printIRResultMinimal(&Serial);
+      Serial.print("\nRecording saved on button  ");
+      Serial.print(lastPressedButton[0], DEC);
+      Serial.println(lastPressedButton[1], DEC);
+      Serial.println();
+    #endif
+
+    lastPressedButton[0] = -1;
+    lastPressedButton[1] = -1;
+
+    IrReceiver.resume();
+  }
+
+  while (IrReceiver.decode()) {
+    IrReceiver.resume();
+    
+    #ifdef DEBUG_PRINTING
+      Serial.print("Flushing: ");
+      IrReceiver.printIRResultMinimal(&Serial);
+      Serial.println();
+    #endif
+  } 
 }
 
 
@@ -416,14 +487,14 @@ unsigned int buttonPacketAddress(unsigned char tempRow, unsigned char tempColumn
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1);
 
   // Reset the info packet and return 0 if one of following conditions is true: 
-  if (  (tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1) ||                                                        // The addres to the buttonPacket is bigger than available memory
+  if ((tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1) ||                                                        // The addres to the buttonPacket is bigger than available memory
         (tempButtonPacketAddress <= (buttonInfoAddress(sizeof(row) - 1, sizeof(column) - 1) + 1) && tempButtonPacketAddress != 0) ||  // The address is in the button info region (first 40 bytes)
         (readEEPROM(tempButtonPacketAddress) == 0)) {                                                                                  // There are no recordings here and therefore the packet is incomplete
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn), 0);
     writeEEPROM(buttonInfoAddress(tempRow, tempColumn) + 1, 0);
     tempButtonPacketAddress = 0;
   }
-  
+
   return tempButtonPacketAddress;
 }
 
@@ -438,21 +509,30 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, 
   if (tempButtonPacketAddress != 0) {
     
     unsigned char tempNumberOfRecordings = readRecordingsOnButton(tempRow, tempColumn); // Read the number of recordings
-
+    //Serial.print("NumberOfRecordings ");
+    //Serial.println(tempNumberOfRecordings, DEC);
     // Only return button packets if there are any
     if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
       unsigned char tempRecordings[tempNumberOfRecordings][sizeof(IRData)];
-      
+
       // Loop through every recording
       for (unsigned char i = 0; i < tempNumberOfRecordings; i++) {
-        
+        //Serial.println("New packet");
         // Loop through every byte in said recording and save it
         for (unsigned char j = 0; j < sizeof(IRData); j++) {
-          tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress * (i+1) + 1 + j);
+          tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
+          /*Serial.print("Recording: ");
+          Serial.print(i, DEC);
+          Serial.print(" Byte number: ");
+          Serial.print(j, DEC);
+          Serial.print(" Address: ");
+          Serial.print(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
+          Serial.print(" Byte: ");
+          Serial.println(tempRecordings[i][j], DEC);*/
         }
       } 
-      memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData));   // Return the recordings to the pointer given in the arguments 
-      return tempNumberOfRecordings;                              // Return number of recordings
+      memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData) * tempNumberOfRecordings);   // Return the recordings to the pointer given in the arguments 
+      return tempNumberOfRecordings;                                                       // Return number of recordings
       
     } else {
       // If there are 0 recordings here, reset the info data
@@ -467,18 +547,18 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, 
 }
 
 
-// Returns recordings in a packet
+// Returns number of recordings in a packet
 unsigned char readRecordingsOnButton(unsigned char tempRow, unsigned char tempColumn) {
   unsigned int tempButtonPacketAddress = buttonPacketAddress(tempRow, tempColumn); // Find the address of the button packet
 
   // If the packet address is 0 then there is no packet and return 0
   if (tempButtonPacketAddress != 0) {
-    
     unsigned char tempNumberOfRecordings = readEEPROM(tempButtonPacketAddress); // Read the number of recordings
-
+    
     // Take action if there are 0 recordings 
     if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
         return tempNumberOfRecordings; // Return packet length
+        
     } else {
       // If there are 0 recordings here, reset the info data
       unsigned int tempButtonInfoAddress = buttonInfoAddress(tempRow, tempColumn);
@@ -486,6 +566,7 @@ unsigned char readRecordingsOnButton(unsigned char tempRow, unsigned char tempCo
       writeEEPROM(tempButtonInfoAddress + 1, 0);
     }
   }
+  
   return 0;
 }
 
@@ -528,7 +609,7 @@ void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned c
 
     #ifdef DEBUG_PRINTING
       Serial.print("Writing ");
-      Serial.print(tempRawData[i], HEX);
+      Serial.print(tempRawData[i], DEC);
       Serial.print(" to address ");
       Serial.println(tempAddress + 1 + i, DEC);
     #endif
