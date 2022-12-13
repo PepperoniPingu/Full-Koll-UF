@@ -200,6 +200,8 @@ void remoteProgram() {
     for (unsigned char j = 0; j < sizeof(column); j++) {
 
       if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
+        Wire.swap(0);
+        Wire.usePullups();
         Wire.begin();
          
         unsigned char recordingsOnButton = readRecordingsOnButton(i, j);
@@ -278,6 +280,8 @@ void recordingProgram() {
 
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
   if (IrReceiver.decode() && (lastPressedButton[0] != -1) && (lastPressedButton[1] != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {
+    Wire.swap(0);
+    Wire.usePullups();
     Wire.begin();
 
     unsigned char numberOfRecordings = 1;
@@ -412,20 +416,22 @@ void scanMatrix() {
 
 // Procedure to prepare for sleep and start sleeping
 void sleep() {
+  #ifdef DEBUG_PRINTING
+    Serial.end(); // Because serial TX and SHORT_COLUMNS is the same pin serial has to be disabled. 
+  #endif
+  
   Wire.end(); // Should not be needed but if it is not done before sleeping, some of the buttons will not work for waking. 
   
   pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
                                       // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
+
+  pinMode(IR_RECEIVE_PIN, INPUT_PULLUP); // Leaving it floating will draw current
 
   // Set all rows to low so a falling interrupt can be generated when button is pressed 
   for (unsigned char i = 0; i < sizeof(row); i++) {
     pinMode(row[i], OUTPUT);
     digitalWrite(row[i], LOW);
   }
-
-  #ifdef DEBUG_PRINTING
-    Serial.end(); // Because serial TX and SHORT_COLUMNS is the same pin serial has to be disabled. 
-  #endif
   
   // Short column 0, 2 and 3 so that they all connect to PIN_PA6 and all buttons can generate interrupts. 
   pinMode(SHORT_COLUMNS, OUTPUT);
@@ -435,6 +441,19 @@ void sleep() {
   for (unsigned char i = 0; i < sizeof(column); i++) {
     pinMode(column[i], INPUT_PULLUP);
   }
+
+  RTC.PITCTRLA &= 0b11111110; // Disable PIT
+
+  /*PORTA.PIN0CTRL = 0b00001100; // UPDI, pullup enabled, interrupt and buffer disabled
+  PORTA.PIN1CTRL = 0b00000100; // Row 3, pullup, interrupt and buffer disabled
+  PORTA.PIN3CTRL = 0b00000100; // Row 5, pullup, interrupt and buffer disabled
+  PORTA.PIN4CTRL = 0b00001100; // Column 3 and IR LED, pullup enabled, interrupt and buffer disabled
+  PORTA.PIN5CTRL = 0b00000100; // Row 4, pullup, interrupt and buffer disabled
+  PORTA.PIN7CTRL = 0b00001100; // IR Reciever, pullup enabled, interrupt and buffer disabled
+  PORTB.PIN0CTRL = 0b00000100; // Row 1, pullup, interrupt and buffer disabled
+  PORTB.PIN1CTRL = 0b00000100; // Row 2, pullup, interrupt and buffer disabled
+  PORTB.PIN2CTRL = 0b00000100; // SHORT_COLUMNS, pullup, interrupt and buffer disabled 
+  PORTB.PIN3CTRL = 0b00001100; // Column 1, pullup enabled, interrupt and buffer disabled*/
   
   PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2
   PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
