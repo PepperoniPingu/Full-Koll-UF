@@ -1,12 +1,14 @@
 #define NO_LED_FEEDBACK_CODE
-#define RAW_BUFFER_LENGTH 112 // Number of bytes in saved in a raw recording. Should be at least 112. 
+#define RAW_BUFFER_LENGTH 120 // Number of bytes in saved in a raw recording. Should be at least 112. 
+#define EXCLUDE_EXOTIC_PROTOCOLS
 
 #define IR_RECEIVE_PIN PIN_PA7
 #define IR_SEND_PIN PIN_PA4
 
 #define SHORT_COLUMNS PIN_PB2
 
-#define NUMBER_OF_REPEATS 1U
+#define NUMBER_OF_REPEATS 2U
+#define DELAY_BETWEEN_REPEAT 500
 #define WAIT_BETWEEN_RECORDINGS 500 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
 
 //#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
@@ -75,6 +77,13 @@ void setup() {
   // Starting tasks
   switch (programState) {
     case remote:
+
+      // Somehow this is needed. If it is not here, the remote will only work after being in recording mode. Will investigate further. 
+      IrReceiver.start();
+      IrReceiver.decode();
+      IrReceiver.end();
+      millis();
+      
       #ifdef DEBUG_PRINTING
         Serial.println("Starting as remote...");
       #endif
@@ -199,7 +208,8 @@ void remoteProgram() {
   for (unsigned char i = 0; i < sizeof(row); i++) {
     for (unsigned char j = 0; j < sizeof(column); j++) {
 
-      if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
+      // If a button is pressed
+      if (buttonStates & buttonBitMask(i, j)) {
         Wire.swap(0);
         Wire.usePullups();
         Wire.begin();
@@ -222,6 +232,10 @@ void remoteProgram() {
   
             // Loop through every recording and send it
             for (unsigned char k = 0; k < recordingsOnButton; k++) {
+              if (lastButtonStates == buttonStates) {
+                  buttonPacket[k].flags = IRDATA_FLAGS_IS_REPEAT;
+              }
+              
               #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
                 IrSender.write(&buttonPacket[k], NUMBER_OF_REPEATS); // Send recording
               #endif
@@ -233,10 +247,12 @@ void remoteProgram() {
                 Serial.println(buttonPacket[k].command, DEC);
               #endif 
               
-              if (recordingsOnButton > 1) {
+              if (recordingsOnButton > 1 && k < recordingsOnButton - 1) {
                 delay(WAIT_BETWEEN_RECORDINGS); // Wait before sending next one
               }
             }
+            
+            delay(DELAY_BETWEEN_REPEAT); // Wait a bit between retransmissions
         }
 
         Wire.end();
@@ -304,6 +320,7 @@ void recordingProgram() {
       readButtonPacket(buttonRecordings, lastPressedButton[0], lastPressedButton[1]); // Read the existing button packet
     }
     buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
+    buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
     
     // Mark old packet as non-existing
     writeEEPROM(buttonInfoAddress(lastPressedButton[0], lastPressedButton[1]), 0);
