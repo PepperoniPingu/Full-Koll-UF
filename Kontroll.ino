@@ -7,6 +7,9 @@
 
 #define SHORT_COLUMNS PIN_PB2
 
+const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
+const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
+
 #define NUMBER_OF_REPEATS 2U
 #define DELAY_BETWEEN_REPEAT 500
 #define WAIT_BETWEEN_RECORDINGS 500 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
@@ -18,9 +21,8 @@
 #include <Wire.h>
 #include "buttons.h"
 #include "eeprom.h"
+#include "pinInits.h"
 
-const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
-const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
 unsigned long buttonStates = 0UL;
 unsigned long lastButtonStates = 0UL;
 char lastPressedButton[2] = { -1, -1};
@@ -46,51 +48,23 @@ unsigned long buttonsToEdit = 0UL;  // When recording state is entered, all butt
                                     // This variable is exists to see if the recording should replace previous made recording or if the packet should be edited. 
 
 void setup() {
-
-  for (unsigned char i = 0; i < sizeof(row); i++) {
-    pinMode(row[i], OUTPUT);
-    digitalWrite(row[i], HIGH);
-  }
-
-  // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED
-  for (unsigned char i = 0; i < sizeof(column); i++) {
-    pinMode(column[i], OUTPUT);
-    digitalWrite(column[i], HIGH);
-  }
-
-  pinMode(SHORT_COLUMNS, OUTPUT);
-  digitalWrite(SHORT_COLUMNS, HIGH);
-
-  IrReceiver.begin(IR_RECEIVE_PIN);
-  
-  IrSender.begin(IR_SEND_PIN);
-  IrSender.enableIROut(38);
-  PORTA.PIN4CTRL |= PORT_INVEN_bm;
+  setupPinInit();
 
   #ifdef DEBUG_PRINTING
-    Serial.swap(0); // Use serial interface 0
-    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);;
+    serialPinInit();
     Serial.println("In debug mode. Sending will not work. ");
   #endif
   
   // Starting tasks
   switch (programState) {
-    case remote:
-
-      // Somehow this is needed. If it is not here, the remote will only work after being in recording mode. Will investigate further. 
-      IrReceiver.start();
-      IrReceiver.decode();
-      IrReceiver.end();
-      millis();
-      
+    case remote:      
       #ifdef DEBUG_PRINTING
         Serial.println("Starting as remote...");
       #endif
       break;
 
     case recording:
-      IrReceiver.begin(IR_RECEIVE_PIN);
-      IrReceiver.start();
+      receivePinInit();
       lastPressedButton[0] = -1;
       lastPressedButton[1] = -1;
       
@@ -106,7 +80,9 @@ void setup() {
 
 
 void loop() {
+  buttonsPinInit();
   scanMatrix();
+  serialPinInit();
   
   // If a button has just been pressed
   if (buttonStates && buttonStates != lastButtonStates) {
@@ -145,7 +121,7 @@ void loop() {
         break;
 
       case recording:
-        IrReceiver.stop();
+        IrReceiver.end();
         lastPressedButton[0] = -1;
         lastPressedButton[1] = -1;
         buttonsToEdit = 0UL;
@@ -171,8 +147,7 @@ void loop() {
         break;
 
       case recording:
-        IrReceiver.begin(IR_RECEIVE_PIN);
-        IrReceiver.start();
+        receivePinInit();
         lastPressedButton[0] = -1;
         lastPressedButton[1] = -1;
         buttonsToEdit = 0UL;
@@ -211,9 +186,7 @@ void remoteProgram() {
 
       // If a button is pressed
       if (buttonStates & buttonBitMask(i, j)) {
-        Wire.swap(0);
-        Wire.usePullups();
-        Wire.begin();
+        I2CPinInit();
          
         unsigned char recordingsOnButton = readRecordingsOnButton(i, j);
         
@@ -238,6 +211,7 @@ void remoteProgram() {
               }
               
               #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
+                sendPinInit();
                 IrSender.write(&buttonPacket[k], NUMBER_OF_REPEATS); // Send recording
               #endif
 
@@ -257,10 +231,6 @@ void remoteProgram() {
         }
 
         Wire.end();
-        pinMode(PIN_PB0, OUTPUT);
-        digitalWrite(PIN_PB0, HIGH);
-        pinMode(PIN_PB1, OUTPUT);
-        digitalWrite(PIN_PB1, HIGH);
       }
     }
   }
@@ -295,11 +265,10 @@ void recordingProgram() {
     }
   #endif 
 
+  receivePinInit();
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
   if (IrReceiver.decode() && (lastPressedButton[0] != -1) && (lastPressedButton[1] != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {
-    Wire.swap(0);
-    Wire.usePullups();
-    Wire.begin();
+    I2CPinInit();
 
     unsigned char numberOfRecordings = 1;
     if (buttonsToEdit & buttonBitMask(lastPressedButton[0], lastPressedButton[1])) {
@@ -329,10 +298,6 @@ void recordingProgram() {
     // Write the updated packet
     writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton[0], lastPressedButton[1]);
     Wire.end();
-    pinMode(PIN_PB0, OUTPUT);
-    digitalWrite(PIN_PB0, HIGH);
-    pinMode(PIN_PB1, OUTPUT);
-    digitalWrite(PIN_PB1, HIGH);
 
     #ifdef DEBUG_PRINTING
       Serial.print("IRResults: ");
@@ -363,21 +328,6 @@ void recordingProgram() {
 
 // Function for reading the buttons
 void scanMatrix() {
-  #ifdef DEBUG_PRINTING
-    Serial.end(); // Serial doesn't work when SHORT_COLUMNS is high. Therefore, to scan the button matrix, serial has to be disabled. 
-  #endif
-  
-  // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
-  pinMode(SHORT_COLUMNS, OUTPUT); 
-  digitalWrite(SHORT_COLUMNS, HIGH); // Active low
-
-  for (unsigned char i = 0; i < sizeof(column); i++) {
-    pinMode(column[i], INPUT_PULLUP);
-  }
-  
-  // IR_SEND_PIN is used for both button matrix and sending IR. When sending IR-codes it needs to be inverted since the IR LED is active low. 
-  PORTA.PIN4CTRL &= ~PORT_INVEN_bm;
-  
   // Copy last button state
   lastButtonStates = buttonStates;
 
@@ -423,17 +373,6 @@ void scanMatrix() {
     }
 
   } while (tempButtonStates != buttonStates); // Compare so that the two runs have got the same value
-
-  // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED
-  for (unsigned char i = 0; i < sizeof(column); i++) {
-    pinMode(column[i], OUTPUT);
-    digitalWrite(column[i], HIGH);
-  }
-  PORTA.PIN4CTRL |= PORT_INVEN_bm; // Revert IR_SEND_PIN so it can be used for sending IR
-
-  #ifdef DEBUG_PRINTING
-    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);; // Turn serial back on once the button scanning is done
-  #endif
 }
 
 
@@ -445,10 +384,10 @@ void sleep() {
   
   Wire.end(); // Should not be needed but if it is not done before sleeping, some of the buttons will not work for waking. 
   
-  pinMode(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
+  pinModeFast(IR_SEND_PIN, INPUT_PULLUP); // IR_SEND_PIN is normally high. Since it's the same pin as column 2, it will short column 0, 2 and 3 to permanently high.
                                       // That will not work to generate a falling interrupt. Therefore it needs to be an input. 
 
-  pinMode(IR_RECEIVE_PIN, INPUT_PULLUP); // Leaving it floating will draw current
+  pinModeFast(IR_RECEIVE_PIN, INPUT_PULLUP); // Leaving it floating will draw current
 
   // Set all rows to low so a falling interrupt can be generated when button is pressed 
   for (unsigned char i = 0; i < sizeof(row); i++) {
@@ -457,8 +396,8 @@ void sleep() {
   }
   
   // Short column 0, 2 and 3 so that they all connect to PIN_PA6 and all buttons can generate interrupts. 
-  pinMode(SHORT_COLUMNS, OUTPUT);
-  digitalWrite(SHORT_COLUMNS, LOW); // Active low
+  pinModeFast(SHORT_COLUMNS, OUTPUT);
+  digitalWriteFast(SHORT_COLUMNS, LOW); // Active low
 
   // Set every column as input so that it is not interfering 
   for (unsigned char i = 0; i < sizeof(column); i++) {
