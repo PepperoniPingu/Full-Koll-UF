@@ -11,8 +11,8 @@
 #define DELAY_BETWEEN_REPEAT 500
 #define WAIT_BETWEEN_RECORDINGS 500 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
 
-//#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
-#define SERIAL_SPEED 115200
+#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
+#define SERIAL_SPEED 19200 // Need to be low in order to not activate receiver
 
 #include <IRremote.hpp>
 #include <Wire.h>
@@ -52,12 +52,11 @@ void setup() {
     digitalWrite(row[i], HIGH);
   }
 
+  // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED
   for (unsigned char i = 0; i < sizeof(column); i++) {
-    pinMode(column[i], INPUT_PULLUP);
+    pinMode(column[i], OUTPUT);
+    digitalWrite(column[i], HIGH);
   }
-
-  pinMode(IR_SEND_PIN, OUTPUT);
-  digitalWrite(IR_SEND_PIN, HIGH);
 
   pinMode(SHORT_COLUMNS, OUTPUT);
   digitalWrite(SHORT_COLUMNS, HIGH);
@@ -70,7 +69,7 @@ void setup() {
 
   #ifdef DEBUG_PRINTING
     Serial.swap(0); // Use serial interface 0
-    Serial.begin(SERIAL_SPEED);
+    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);;
     Serial.println("In debug mode. Sending will not work. ");
   #endif
   
@@ -90,6 +89,7 @@ void setup() {
       break;
 
     case recording:
+      IrReceiver.begin(IR_RECEIVE_PIN);
       IrReceiver.start();
       lastPressedButton[0] = -1;
       lastPressedButton[1] = -1;
@@ -171,6 +171,7 @@ void loop() {
         break;
 
       case recording:
+        IrReceiver.begin(IR_RECEIVE_PIN);
         IrReceiver.start();
         lastPressedButton[0] = -1;
         lastPressedButton[1] = -1;
@@ -369,9 +370,12 @@ void scanMatrix() {
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinMode(SHORT_COLUMNS, OUTPUT); 
   digitalWrite(SHORT_COLUMNS, HIGH); // Active low
+
+  for (unsigned char i = 0; i < sizeof(column); i++) {
+    pinMode(column[i], INPUT_PULLUP);
+  }
   
   // IR_SEND_PIN is used for both button matrix and sending IR. When sending IR-codes it needs to be inverted since the IR LED is active low. 
-  pinMode(IR_SEND_PIN, INPUT_PULLUP);
   PORTA.PIN4CTRL &= ~PORT_INVEN_bm;
   
   // Copy last button state
@@ -420,13 +424,15 @@ void scanMatrix() {
 
   } while (tempButtonStates != buttonStates); // Compare so that the two runs have got the same value
 
-  // Revert IR_SEND_PIN so it can be used for sending IR
-  PORTA.PIN4CTRL |= PORT_INVEN_bm;
-  pinMode(IR_SEND_PIN, OUTPUT);
-  digitalWrite(IR_SEND_PIN, LOW);
+  // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED
+  for (unsigned char i = 0; i < sizeof(column); i++) {
+    pinMode(column[i], OUTPUT);
+    digitalWrite(column[i], HIGH);
+  }
+  PORTA.PIN4CTRL |= PORT_INVEN_bm; // Revert IR_SEND_PIN so it can be used for sending IR
 
   #ifdef DEBUG_PRINTING
-    Serial.begin(SERIAL_SPEED); // Turn serial back on once the button scanning is done
+    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);; // Turn serial back on once the button scanning is done
   #endif
 }
 
@@ -498,12 +504,14 @@ void wakeProcedure() {
     digitalWrite(row[i], HIGH);
   }
 
-  // Revert IR_SEND_PIN so it can be used for sending IR
-  pinMode(IR_SEND_PIN, OUTPUT);
-  digitalWrite(IR_SEND_PIN, HIGH);
+  // Revert columns to high
+  for (unsigned char i = 0; i < sizeof(column); i++) {
+    pinMode(column[i], OUTPUT);
+    digitalWrite(column[i], HIGH);
+  }
 
   #ifdef DEBUG_PRINTING
-    Serial.begin(SERIAL_SPEED);  // Start serial again
+    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);;  // Start serial again
   #endif
 }
 
