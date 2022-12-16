@@ -25,11 +25,22 @@ void setupPinInit() {
 }
 
 void I2CPinInit() {
+  // If serial is not finished printing, it will interfer with I2C
+  #ifdef DEBUG_PRINTING
+    Serial.flush();
+    Serial.end();
+  #endif
+
   // Initialize all the columns as inputs. Necessary if a button is pressed and connects one of the I2C pins (that is also a row) to a column
   pinModeFast(PIN_PB3, INPUT_PULLUP);
   pinModeFast(PIN_PA2, INPUT_PULLUP);
   pinModeFast(PIN_PA4, INPUT_PULLUP);
   pinModeFast(PIN_PA6, INPUT_PULLUP);
+
+   
+  // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
+  pinModeFast(SHORT_COLUMNS, OUTPUT); 
+  digitalWriteFast(SHORT_COLUMNS, HIGH); // Active low
   
   Wire.swap(0);
   Wire.usePullups();
@@ -37,12 +48,14 @@ void I2CPinInit() {
 }
 
 void serialPinInit() {
+  
   Serial.swap(0); // Use serial interface 0
   Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);
 }
 
 void buttonsPinInit() {
   #ifdef DEBUG_PRINTING
+    Serial.flush();
     Serial.end(); // Serial doesn't work when SHORT_COLUMNS is high. Therefore, to scan the button matrix, serial has to be disabled. 
   #endif
   
@@ -92,6 +105,11 @@ void receivePinInit(){
 }
 
 void sendPinInit(){
+  #ifdef DEBUG_PRINTING
+    Serial.flush();
+    Serial.end();
+  #endif
+  
   // Disable the shorting of columns since this will also short the IR LED
   pinMode(SHORT_COLUMNS, OUTPUT);
   digitalWrite(SHORT_COLUMNS, HIGH);

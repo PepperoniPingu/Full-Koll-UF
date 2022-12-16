@@ -191,6 +191,7 @@ void remoteProgram() {
         unsigned char recordingsOnButton = readRecordingsOnButton(i, j);
         
         #ifdef DEBUG_PRINTING
+          serialPinInit();
           Serial.print("Button pressed ");
           Serial.print(i, DEC);
           Serial.println(j, DEC);
@@ -198,6 +199,7 @@ void remoteProgram() {
           Serial.println(buttonStates, BIN);
           Serial.print("Recordings: ");
           Serial.println(recordingsOnButton, DEC);
+          I2CPinInit();
         #endif
         
         if (recordingsOnButton) {
@@ -216,10 +218,12 @@ void remoteProgram() {
               #endif
 
               #ifdef DEBUG_PRINTING
+                serialPinInit();
                 Serial.print("Protocol: ");
                 Serial.print(buttonPacket[k].protocol, DEC); 
                 Serial.print(" Command: ");
                 Serial.println(buttonPacket[k].command, DEC);
+                I2CPinInit();
               #endif 
               
               if (recordingsOnButton > 1 && k < recordingsOnButton - 1) {
@@ -238,6 +242,7 @@ void remoteProgram() {
   // Only sleep if no buttons are pressed
   if (buttonStates == 0UL) {
     #ifdef DEBUG_PRINTING
+      serialPinInit();
       Serial.println("Sleep initiating...\n");
     #endif
     
@@ -245,6 +250,7 @@ void remoteProgram() {
     wakeProcedure();
     
     #ifdef DEBUG_PRINTING
+      serialPinInit();
       Serial.println("Waking up...");
     #endif
   }
@@ -254,6 +260,7 @@ void remoteProgram() {
 // TODO: Make it possible to store multiple recordings on one button 
 void recordingProgram() {
   #ifdef DEBUG_PRINTING
+    serialPinInit();
     for (unsigned char i = 0; i < sizeof(row); i++) {
       for (unsigned char j = 0; j < sizeof(column); j++) {
         if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
@@ -275,13 +282,17 @@ void recordingProgram() {
       numberOfRecordings = readRecordingsOnButton(lastPressedButton[0], lastPressedButton[1]) + 1;  
 
       #ifdef DEBUG_PRINTING
+        serialPinInit();
         Serial.println("Adding to button packet");
+        I2CPinInit();
       #endif
     } else {
       buttonsToEdit |= buttonBitMask(lastPressedButton[0], lastPressedButton[1]);
 
       #ifdef DEBUG_PRINTING
+        serialPinInit();
         Serial.println("Creating new button packet. Discarding old recordings on button. ");
+        I2CPinInit();
       #endif
     }
     IRData buttonRecordings[numberOfRecordings];
@@ -300,6 +311,7 @@ void recordingProgram() {
     Wire.end();
 
     #ifdef DEBUG_PRINTING
+      serialPinInit();
       Serial.print("IRResults: ");
       IrReceiver.printIRResultMinimal(&Serial);
       Serial.print("\nRecording saved on button  ");
@@ -311,9 +323,11 @@ void recordingProgram() {
     lastPressedButton[0] = -1;
     lastPressedButton[1] = -1;
 
+    receivePinInit();
     IrReceiver.resume();
   }
 
+  
   while (IrReceiver.decode()) {
     IrReceiver.resume();
     
