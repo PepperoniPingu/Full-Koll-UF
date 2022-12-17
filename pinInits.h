@@ -1,7 +1,7 @@
 #ifndef pininits_h
 #define pininits_h
 
-#include "Arduino.h"
+#include <Arduino.h>
 
 #define IR_RECEIVE_PIN PIN_PA7
 #define IR_SEND_PIN PIN_PA4
