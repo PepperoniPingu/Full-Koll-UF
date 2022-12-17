@@ -1,23 +1,4 @@
-#define NO_LED_FEEDBACK_CODE
-#define RAW_BUFFER_LENGTH 120 // Number of bytes in saved in a raw recording. Should be at least 112. 
-#define EXCLUDE_EXOTIC_PROTOCOLS
-
-#define IR_RECEIVE_PIN PIN_PA7
-#define IR_SEND_PIN PIN_PA4
-
-#define SHORT_COLUMNS PIN_PB2
-
-const unsigned char row[5] = {PIN_PB0, PIN_PB1, PIN_PA1, PIN_PA5, PIN_PA3};
-const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
-
-#define NUMBER_OF_REPEATS 2U
-#define DELAY_BETWEEN_REPEAT 500
-#define WAIT_BETWEEN_RECORDINGS 500 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording. 
-#define WAIT_AFTER_BUTTON 500
-
-#define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
-#define SERIAL_SPEED 19200 // Need to be low in order to not activate receiver
-
+#include "options.h"
 #include <IRremote.hpp>
 #include <Wire.h>
 #include "buttons.h"
@@ -212,11 +193,12 @@ void remoteProgram() {
           Serial.end();
           I2CPinInit();
         #endif
-        
-        if (recordingsOnButton) {
+
+        if (recordingsOnButton ) {
           IRData buttonPacket[recordingsOnButton];
           readButtonPacket(buttonPacket, i, j); // Read button packet
-  
+          Wire.end();
+          
             // Loop through every recording and send it
             for (unsigned char k = 0; k < recordingsOnButton; k++) {
               if (lastButtonStates == buttonStates) {
@@ -229,7 +211,6 @@ void remoteProgram() {
               #endif
 
               #ifdef DEBUG_PRINTING
-                Wire.end();
                 serialPinInit();
                 Serial.print("Protocol: ");
                 Serial.print(buttonPacket[k].protocol, DEC); 
@@ -237,7 +218,6 @@ void remoteProgram() {
                 Serial.println(buttonPacket[k].command, DEC);
                 Serial.flush();
                 Serial.end();
-                I2CPinInit();
               #endif 
               
               if (recordingsOnButton > 1 && k < recordingsOnButton - 1) {
@@ -247,8 +227,6 @@ void remoteProgram() {
             
             delay(DELAY_BETWEEN_REPEAT); // Wait a bit between retransmissions
         }
-
-        Wire.end();
       }
     }
   }
@@ -652,9 +630,9 @@ void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned c
   // Write the other bytes
   for (unsigned int i = 0; i < sizeof(tempRawData); i++) {
     writeEEPROM(tempAddress + i + 1, tempRawData[i]);
-    unsigned char tempRead = readEEPROM(tempAddress + i + 1);
 
     #ifdef DEBUG_PRINTING
+      unsigned char tempRead = readEEPROM(tempAddress + i + 1);
       Wire.end();
       serialPinInit();
       Serial.print("Writing ");
