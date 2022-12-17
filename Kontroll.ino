@@ -554,14 +554,22 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char tempRow, 
         // Loop through every byte in said recording and save it
         for (unsigned char j = 0; j < sizeof(IRData); j++) {
           tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
-          /*Serial.print("Recording: ");
-          Serial.print(i, DEC);
-          Serial.print(" Byte number: ");
-          Serial.print(j, DEC);
-          Serial.print(" Address: ");
-          Serial.print(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
-          Serial.print(" Byte: ");
-          Serial.println(tempRecordings[i][j], DEC);*/
+          
+          #ifdef DEBUG_PRINTING
+            Wire.end();
+            serialPinInit();
+            Serial.print("Recording: ");
+            Serial.print(i, DEC);
+            Serial.print(" Byte number: ");
+            Serial.print(j, DEC);
+            Serial.print(" Address: ");
+            Serial.print(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
+            Serial.print(" Byte: ");
+            Serial.println(tempRecordings[i][j], DEC);
+            Serial.flush();
+            Serial.end();
+            I2CPinInit();
+          #endif
         }
       } 
       memcpy(buttonPacketPtr, &tempRecordings, sizeof(IRData) * tempNumberOfRecordings);   // Return the recordings to the pointer given in the arguments 
@@ -644,6 +652,7 @@ void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned c
   // Write the other bytes
   for (unsigned int i = 0; i < sizeof(tempRawData); i++) {
     writeEEPROM(tempAddress + i + 1, tempRawData[i]);
+    unsigned char tempRead = readEEPROM(tempAddress + i + 1);
 
     #ifdef DEBUG_PRINTING
       Wire.end();
@@ -651,7 +660,9 @@ void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned c
       Serial.print("Writing ");
       Serial.print(tempRawData[i], DEC);
       Serial.print(" to address ");
-      Serial.println(tempAddress + 1 + i, DEC);
+      Serial.print(tempAddress + 1 + i, DEC);
+      Serial.print(". Read back: ");
+      Serial.println(tempRead, DEC);
       Serial.flush();
       Serial.end();
       I2CPinInit();
