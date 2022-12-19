@@ -31,6 +31,13 @@ void I2CPinInit() {
   pinModeFast(PIN_PA4, INPUT_PULLUP);
   pinModeFast(PIN_PA6, INPUT_PULLUP);
 
+  //Initialize all the rows as INPUTS
+  pinModeFast(PIN_PB0, INPUT_PULLUP);
+  pinModeFast(PIN_PB1, INPUT_PULLUP);
+  pinModeFast(PIN_PA1, INPUT_PULLUP);
+  pinModeFast(PIN_PA5, INPUT_PULLUP);
+  pinModeFast(PIN_PA3, INPUT_PULLUP);
+
    
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinModeFast(SHORT_COLUMNS, OUTPUT); 

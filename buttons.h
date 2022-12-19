@@ -1,6 +1,8 @@
 #ifndef buttons_h
 #define buttons_h
 
+#include "options.h"
+
 // Definitions for amount of steps to shift left to get to the bit position
 #define btn00ShiftLeft 0
 #define btn01ShiftLeft 1
@@ -23,28 +25,19 @@
 #define btn42ShiftLeft 18
 #define btn43ShiftLeft 19
 
-
-// A way to dynamically address the defined amount of shifting
-const unsigned char buttonShiftLeft[5][4] = {
-  {btn00ShiftLeft, btn01ShiftLeft, btn02ShiftLeft, btn03ShiftLeft},
-  {btn10ShiftLeft, btn11ShiftLeft, btn12ShiftLeft, btn13ShiftLeft},
-  {btn20ShiftLeft, btn21ShiftLeft, btn22ShiftLeft, btn23ShiftLeft},
-  {btn30ShiftLeft, btn31ShiftLeft, btn32ShiftLeft, btn33ShiftLeft},
-  {btn40ShiftLeft, btn41ShiftLeft, btn42ShiftLeft, btn43ShiftLeft}
-};
-
-const unsigned char buttonInDecimal[20] = {
-  btn00ShiftLeft, btn01ShiftLeft, btn02ShiftLeft, btn03ShiftLeft,
-  btn10ShiftLeft, btn11ShiftLeft, btn12ShiftLeft, btn13ShiftLeft,
-  btn20ShiftLeft, btn21ShiftLeft, btn22ShiftLeft, btn23ShiftLeft,
-  btn30ShiftLeft, btn31ShiftLeft, btn32ShiftLeft, btn33ShiftLeft,
-  btn40ShiftLeft, btn41ShiftLeft, btn42ShiftLeft, btn43ShiftLeft
-};
-
 // Function to get the bit mask for a button
 unsigned long buttonBitMask(unsigned char row, unsigned char column);
 
+// Function to get the bit mask for a button
+unsigned long buttonBitMask(unsigned char buttonDecimal);
+
 // Remake button 0 to 19 into row and column
 void buttonDecimalToMatrice(unsigned char* row, unsigned char* column, unsigned char tempButtonInDecimal);
+
+// Remake row and column to 0 to 19
+unsigned char buttonMatriceToDecimal(unsigned char row, unsigned char column);
+
+// Function for reading the buttons
+void scanMatrix(unsigned long* buttonStates, unsigned long* lastButtonStates, char *lastPressedButton);
 
 #endif

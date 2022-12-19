@@ -20,7 +20,7 @@ unsigned char readEEPROM(unsigned int memoryAddress) {
     Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write(memoryAddress >> 8);   // MSB
     Wire.write(memoryAddress & 0xFF);
-  } while (Wire.endTransmission(false)); // Send out bytes but don't send a stop bit
+  } while (Wire.endTransmission(false) != 0); // Send out bytes but don't send a stop bit
   Wire.requestFrom(EEPROM_I2C_ADDRESS, 1, true);
   // Wait for EEPROM to reply. Only try 50 times
   for (int i = 0; i < I2C_RETRIES && !Wire.available(); i++) {}
