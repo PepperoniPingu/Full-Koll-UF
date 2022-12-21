@@ -29,8 +29,8 @@ unsigned char readEEPROM(unsigned int memoryAddress) {
   }
 
   // Flush the buffer, should not really be needed
-  while(Wire.available()) { 
+  /*while(Wire.available()) { 
     Wire.read();
-  }
+  }*/
   return rdata;
 }

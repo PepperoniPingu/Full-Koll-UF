@@ -49,20 +49,13 @@ void scanMatrix(unsigned long* buttonStates, unsigned long* lastButtonStates, ch
     }
   
     // Correct for hardware bug on last column (column 3)
-    if (*buttonStates & buttonBitMask(0, 3)) {
-      *buttonStates = *buttonStates & ~(buttonBitMask(0, 2) | buttonBitMask(0, 0));
-    }
-    if (*buttonStates & buttonBitMask(1, 3)) {
-      *buttonStates = *buttonStates & ~(buttonBitMask(1, 2) | buttonBitMask(1, 0));
-    }
-    if (*buttonStates & buttonBitMask(2, 3)) {
-      *buttonStates = *buttonStates & ~(buttonBitMask(2, 2) | buttonBitMask(2, 0));
-    }
-    if (*buttonStates & buttonBitMask(3, 3)) {
-      *buttonStates = *buttonStates & ~(buttonBitMask(3, 2) | buttonBitMask(3, 0));
-    }
-    if (*buttonStates & buttonBitMask(4, 3)) {
-      *buttonStates = *buttonStates & ~(buttonBitMask(4, 2) | buttonBitMask(4, 0));
+    if(*buttonStates & (buttonBitMask(0, 3) | buttonBitMask(1, 3) | buttonBitMask(2,3) | buttonBitMask(3, 3) | buttonBitMask(4, 3))) {
+      *buttonStates = *buttonStates & ~(buttonBitMask(0, 0) | buttonBitMask(0, 2) | 
+                                        buttonBitMask(1, 0) | buttonBitMask(1, 2) | 
+                                        buttonBitMask(2, 0) | buttonBitMask(2, 2) | 
+                                        buttonBitMask(3, 0) | buttonBitMask(3, 2) | 
+                                        buttonBitMask(4, 0) | buttonBitMask(4, 2));
+      
     }
 
   } while (tempButtonStates != *buttonStates); // Compare so that the two runs have got the same value
