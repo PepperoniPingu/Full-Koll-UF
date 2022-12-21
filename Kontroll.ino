@@ -300,21 +300,20 @@ void recordingProgram() {
         I2CPinInit();
       #endif
     }
-    {
-      IRData buttonRecordings[numberOfRecordings];
-      if (numberOfRecordings > 1) {
-        readButtonPacket(buttonRecordings, lastPressedButton); // Read the existing button packet
-      }
-      buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
-      //buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
-      
+    
+    IRData buttonRecordings[numberOfRecordings];
+    if (numberOfRecordings > 1) {
+      readButtonPacket(buttonRecordings, lastPressedButton); // Read the existing button packet
       // Mark old packet as non-existing
       writeEEPROM(buttonInfoAddress(lastPressedButton), 0);
       writeEEPROM(buttonInfoAddress(lastPressedButton) + 1, 0);
-      // Write the updated packet
-      writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton);
-      Wire.end();
     }
+    buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
+    //buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
+    
+    // Write the updated packet
+    writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton);
+    Wire.end();
 
     #ifdef DEBUG_PRINTING
       serialPinInit();    

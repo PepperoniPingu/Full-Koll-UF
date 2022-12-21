@@ -11,8 +11,8 @@ unsigned long buttonBitMask(unsigned char buttonDecimal) {
 
 // Remake button 0 to 19 into row and column
 void buttonDecimalToMatrice(unsigned char* tempRow, unsigned char* tempColumn, unsigned char tempButtonInDecimal) {
-  *tempRow = tempButtonInDecimal / 4;
-  *tempColumn = tempButtonInDecimal % 4;
+  *tempRow = tempButtonInDecimal / sizeof(column);
+  *tempColumn = tempButtonInDecimal % sizeof(column);
 }
 
 // Remake row and column to 0 to 19

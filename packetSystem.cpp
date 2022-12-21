@@ -14,13 +14,13 @@ unsigned int buttonPacketAddress(unsigned char buttonDecimal) {
 
   // Read the adress of the button packet
   unsigned int tempButtonPacketAddress = 0;
-  tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(buttonDecimal)) << 8;
+  tempButtonPacketAddress = readEEPROM(buttonInfoAddress(buttonDecimal)) << 8;
   tempButtonPacketAddress |= readEEPROM(buttonInfoAddress(buttonDecimal) + 1);
 
   // Reset the info packet and return 0 if one of following conditions is true: 
-  if ((tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1) ||                                                        // The addres to the buttonPacket is bigger than available memory
-        (tempButtonPacketAddress <= buttonInfoAddress(NUMBER_OF_BUTTONS) && tempButtonPacketAddress != 0) ||  // The address is in the button info region (first 40 bytes)
-        (readEEPROM(tempButtonPacketAddress) == 0)) {                                                                                  // There are no recordings here and therefore the packet is incomplete
+  if ((tempButtonPacketAddress > MAX_EEPROM_ADDRESS - sizeof(IRData) - 1) ||                                    // The addres to the buttonPacket is bigger than available memory
+        (tempButtonPacketAddress < buttonInfoAddress(NUMBER_OF_BUTTONS) && tempButtonPacketAddress != 0) ||   // The address is in the button info region (first 40 bytes)
+        (readEEPROM(tempButtonPacketAddress) == 0)) {                                                         // There are no recordings here and therefore the packet is incomplete
     writeEEPROM(buttonInfoAddress(buttonDecimal), 0);
     writeEEPROM(buttonInfoAddress(buttonDecimal) + 1, 0);
     tempButtonPacketAddress = 0;

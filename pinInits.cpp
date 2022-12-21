@@ -39,9 +39,9 @@ void I2CPinInit() {
   pinModeFast(PIN_PA3, INPUT_PULLUP);
 
    
-  // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
+  // Activate SHORT_COLUMNS so that we can use the pull up from the IR LED. 
   pinModeFast(SHORT_COLUMNS, OUTPUT); 
-  digitalWriteFast(SHORT_COLUMNS, HIGH); // Active low
+  digitalWriteFast(SHORT_COLUMNS, LOW); // Active low
   
   Wire.swap(0);
   Wire.usePullups();
