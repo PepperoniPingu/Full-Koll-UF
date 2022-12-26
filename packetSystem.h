@@ -12,6 +12,16 @@
   #include "pinInits.h"
 #endif
 
+#define DECODED_FLAG 1
+#define RAW_FLAG 0
+
+struct Recording {
+  bool decodedFlag;
+  IRData recordedIRData;
+  unsigned char rawCode[RAW_BUFFER_LENGTH];
+  unsigned char rawCodeLength;
+}
+
 unsigned int buttonInfoAddress(unsigned char buttonDecimal);
 
 unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char buttonDecimal);

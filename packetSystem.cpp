@@ -1,7 +1,8 @@
 #include "packetSystem.h"
 
 // Each button has a permanent address for info. The info contains another address to where a "button packet" is found. A button packet contains 
-// number of signals, protocol type and protocol data are stored. The info is 2 bytes which are the address of the button packet. 
+// number of signals, a flag if it is raw or decoded and the corresponding data. If the flag indicates it is raw then the data takes up RAW_BUFFER_LENGTH number of bytes. If it is decoded then the next bytes are a direct copy of 
+// IRData. The info is 2 bytes which are the address of the button packet. 
 // This function returns the address for the permanent address for the button info. 
 unsigned int buttonInfoAddress(unsigned char buttonDecimal) {
   unsigned int tempInfoAddress = 2 * buttonDecimal;
@@ -30,8 +31,9 @@ unsigned int buttonPacketAddress(unsigned char buttonDecimal) {
 
 
 // First byte of the button packet contains the number of recordings
-// Second byte and after contains the first recording's IRData
-unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char buttonDecimal) {
+// Second byte contains decoded flag
+// Third byte and after contains the first recording's IRData or the raw data
+unsigned char readButtonPacket(Recording recordingPtr[], unsigned char buttonDecimal) {
 
   unsigned int tempButtonPacketAddress = buttonPacketAddress(buttonDecimal); // Find the address of the button packet
 
@@ -43,13 +45,13 @@ unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char buttonDec
     //Serial.println(tempNumberOfRecordings, DEC);
     // Only return button packets if there are any
     if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
-      unsigned char tempRecordings[tempNumberOfRecordings][sizeof(IRData)];
+      unsigned char tempRecordings[tempNumberOfRecordings][sizeof(IRData) + 1];
 
       // Loop through every recording
       for (unsigned char i = 0; i < tempNumberOfRecordings; i++) {
         //Serial.println("New packet");
         // Loop through every byte in said recording and save it
-        for (unsigned char j = 0; j < sizeof(IRData); j++) {
+        for (unsigned char j = 0; j < sizeof(IRData) + 1; j++) {
           tempRecordings[i][j] = readEEPROM(tempButtonPacketAddress + sizeof(IRData) * i + 1 + j);
           
           #ifdef DEBUG_PRINTING
