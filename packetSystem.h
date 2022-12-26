@@ -20,17 +20,17 @@ struct Recording {
   IRData recordedIRData;
   unsigned char rawCode[RAW_BUFFER_LENGTH];
   unsigned char rawCodeLength;
-}
+};
 
 unsigned int buttonInfoAddress(unsigned char buttonDecimal);
 
-unsigned char readButtonPacket(IRData buttonPacketPtr[], unsigned char buttonDecimal);
+unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonDecimal);
 
 unsigned char readRecordingsOnButton(unsigned char buttonDecimal);
 
-unsigned char readButtonPacketLength(unsigned char buttonDecimal);
+unsigned int readButtonPacketLength(unsigned char buttonDecimal);
 
-void writeButtonPacket(IRData tempIRData[], unsigned char recordings, unsigned char buttonDecimal);
+void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings, unsigned char buttonDecimal);
 
 unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired);
 

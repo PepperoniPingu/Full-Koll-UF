@@ -194,30 +194,47 @@ void remoteProgram() {
       #endif
 
       if (recordingsOnButton) {
-        IRData buttonPacket[recordingsOnButton];
-        readButtonPacket(buttonPacket, i); // Read button packet
+        Recording buttonRecordings[recordingsOnButton];
+        readButtonRecordings(buttonRecordings, i); // Read button recordings in packet
         Wire.end();
         
           // Loop through every recording and send it
           for (unsigned char k = 0; k < recordingsOnButton; k++) {
             if (lastButtonStates == buttonStates) {
-                buttonPacket[k].flags = IRDATA_FLAGS_IS_REPEAT;
+                buttonRecordings[k].recordedIRData.flags = IRDATA_FLAGS_IS_REPEAT;
             }
             
-            #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
-              sendPinInit();
-              IrSender.write(&buttonPacket[k], NUMBER_OF_REPEATS); // Send recording
-            #endif
+            if (buttonRecordings[k].decodedFlag == RAW_FLAG) {
 
-            #ifdef DEBUG_PRINTING
-              serialPinInit();
-              Serial.print("Protocol: ");
-              Serial.print(buttonPacket[k].protocol, DEC); 
-              Serial.print(" Command: ");
-              Serial.println(buttonPacket[k].command, DEC);
-              Serial.flush();
-              Serial.end();
-            #endif 
+              #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
+                sendPinInit();
+                IrSender.sendRaw(buttonRecordings[k].rawCode, buttonRecordings[k].rawCodeLength, 38); // Send raw code. Assume 38 kHz carrier frequency
+                
+              #else 
+                serialPinInit();
+                Serial.print("Sending raw recording. ");
+                Serial.print(buttonRecordings[k].rawCodeLength, DEC);
+                Serial.println(" marks or spaces.");
+                Serial.flush();
+                Serial.end();
+              #endif
+              
+            } else {
+
+              #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
+                sendPinInit();
+                IrSender.write(&buttonRecordings[k].recordedIRData, NUMBER_OF_REPEATS);
+                
+              #else
+                serialPinInit();
+                Serial.print("Sending decoded recording. Protocol: ");
+                Serial.print(buttonRecordings[k].recordedIRData.protocol, DEC); 
+                Serial.print(" Command: ");
+                Serial.println(buttonRecordings[k].recordedIRData.command, DEC);
+                Serial.flush();
+                Serial.end();
+              #endif
+            }
             
             if (recordingsOnButton > 1 && k < recordingsOnButton - 1) {
               delay(WAIT_BETWEEN_RECORDINGS); // Wait before sending next one
@@ -272,7 +289,7 @@ void recordingProgram() {
 
   receivePinInit();
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
-  if (IrReceiver.decode() && (lastPressedButton != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {   
+  if (IrReceiver.available() && (lastPressedButton != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {   
     I2CPinInit();
 
     unsigned char numberOfRecordings = 1;
@@ -300,16 +317,30 @@ void recordingProgram() {
         I2CPinInit();
       #endif
     }
+
+    Recording buttonRecordings[numberOfRecordings]; // Make a buffer for the old recordings and the new one
     
-    IRData buttonRecordings[numberOfRecordings];
     if (numberOfRecordings > 1) {
-      readButtonPacket(buttonRecordings, lastPressedButton); // Read the existing button packet
+      readButtonRecordings(buttonRecordings, lastPressedButton); // Read the existing button recordings
       // Mark old packet as non-existing
       writeEEPROM(buttonInfoAddress(lastPressedButton), 0);
       writeEEPROM(buttonInfoAddress(lastPressedButton) + 1, 0);
     }
-    buttonRecordings[numberOfRecordings - 1] = {*IrReceiver.read()}; // Decode recieved data and add it to the existing packet
-    //buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
+
+    IRData tempIRData = *IrReceiver.read(); // Read data
+    
+    // If the protocol is unkown, the data needs to be saved raw
+    if(tempIRData.protocol == UNKNOWN) {
+      buttonRecordings[numberOfRecordings - 1].decodedFlag = RAW_FLAG; // Indicate that the recording is raw
+      buttonRecordings[numberOfRecordings - 1].rawCodeLength = IrReceiver.decodedIRData.rawDataPtr->rawlen - 1; // Save the length of the recording. -1 since first byte is space since last recording I think...
+      IrReceiver.compensateAndStoreIRResultInArray(buttonRecordings[numberOfRecordings - 1].rawCode); // Clean up the recording and save it
+      
+    } else {
+      // If the data can be decoded, save it as IRData
+      buttonRecordings[numberOfRecordings - 1].decodedFlag = DECODED_FLAG; // Indicate that the recording is raw
+      buttonRecordings[numberOfRecordings - 1].recordedIRData = {tempIRData};
+      //buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
+    }
     
     // Write the updated packet
     writeButtonPacket(buttonRecordings, numberOfRecordings, lastPressedButton);
