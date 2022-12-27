@@ -53,6 +53,18 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
         
         recordings[i].decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum) & 0x1; // Read if it is raw format or IRData
 
+        #ifdef DEBUG_PRINTING
+          Wire.end();
+          serialPinInit();
+          Serial.print("Reading decodedFlag from address ");
+          Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
+          Serial.print(". Read ");
+          Serial.println(recordings[i].decodedFlag, DEC);
+          Serial.flush();
+          Serial.end();
+          I2CPinInit();
+        #endif
+
         if (recordings[i].decodedFlag == RAW_FLAG) {
           recordings[i].rawCodeLength = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1); // Read length of raw data
 
@@ -68,7 +80,7 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
               Serial.print(" Byte number: ");
               Serial.print(j, DEC);
               Serial.print(" Address: ");
-              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 2 + j);
+              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 2 + j, DEC);
               Serial.print(" Byte: ");
               Serial.println(recordings[i].rawCode[j], DEC);
               Serial.flush();
@@ -93,7 +105,7 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
               Serial.print(" Byte number: ");
               Serial.print(j, DEC);
               Serial.print(" Address: ");
-              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + j);
+              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + j, DEC);
               Serial.print(" Byte: ");
               Serial.println(IRDataBuffer[j], DEC);
               Serial.flush();
@@ -207,14 +219,27 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
 
   unsigned int sumRecordingLengths = 0;
   for (unsigned char i = 0; i < numberOfRecordings; i++) {
-    writeEEPROM(tempAddress + 1 + sumRecordingLengths, recordings[i].decodedFlag & 1); // Write if the recording is raw or decoded in to the first byte of the recording
+  
+    writeEEPROM(tempAddress + 1 + sumRecordingLengths, recordings[i].decodedFlag & 0x1); // Write if the recording is raw or decoded in to the first byte of the recording
+    
+    #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.print("Writing decodedFlag to address ");
+        Serial.print(tempAddress + 1 + sumRecordingLengths, DEC);
+        Serial.print(". Wrote ");
+        Serial.println(recordings[i].decodedFlag & 0x1, DEC);
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
     
     if (recordings[i].decodedFlag == RAW_FLAG) {
 
       #ifdef DEBUG_PRINTING
           Wire.end();
           serialPinInit();
-          Serial.println("Saving raw recording");
+          Serial.println("Saving raw recording...");
           Serial.print("Writing ");
           Serial.print(recordings[i].rawCodeLength, DEC);
           Serial.print(" bytes.");
@@ -239,7 +264,7 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
           Serial.print("Writing ");
           Serial.print(writeBuffer[j], DEC);
           Serial.print(" to address ");
-          Serial.print(tempAddress + 1 + sumRecordingLengths + 2 + j, DEC);
+          Serial.println(tempAddress + 1 + sumRecordingLengths + 2 + j, DEC);
           Serial.flush();
           Serial.end();
           I2CPinInit();
@@ -247,15 +272,17 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
       }
 
       sumRecordingLengths += recordings[i].rawCodeLength + 2;
+
+    // Decoded recording
     } else {
 
       #ifdef DEBUG_PRINTING
           Wire.end();
           serialPinInit();
-          Serial.println("Saving decoded recording");
+          Serial.println("Saving decoded recording...");
           Serial.print("Writing ");
           Serial.print(sizeof(IRData), DEC);
-          Serial.print(" bytes.");
+          Serial.println(" bytes.\n");
           Serial.flush();
           Serial.end();
           I2CPinInit();
@@ -275,7 +302,7 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
           Serial.print("Writing ");
           Serial.print(writeBuffer[j], DEC);
           Serial.print(" to address ");
-          Serial.print(tempAddress + 1 + sumRecordingLengths + 1 + j, DEC);
+          Serial.println(tempAddress + 1 + sumRecordingLengths + 1 + j, DEC);
           Serial.flush();
           Serial.end();
           I2CPinInit();
