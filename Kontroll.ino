@@ -134,6 +134,8 @@ void loop() {
         
         #ifdef DEBUG_PRINTING
           Serial.println("Switching to recording...");
+          Serial.print("Available ram: ");
+          Serial.println(freeRam(), DEC);
         #endif
         break;
 
@@ -458,4 +460,16 @@ void wakeProcedure() {
     pinMode(column[i], OUTPUT);
     digitalWrite(column[i], HIGH);
   }
+}
+
+int freeRam() {
+
+  extern int __heap_start,*__brkval;
+
+  int v;
+
+  return (int)&v - (__brkval == 0  
+
+    ? (int)&__heap_start : (int) __brkval);  
+
 }
