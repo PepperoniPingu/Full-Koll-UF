@@ -134,8 +134,6 @@ void loop() {
         
         #ifdef DEBUG_PRINTING
           Serial.println("Switching to recording...");
-          Serial.print("Available ram: ");
-          Serial.println(freeRam(), DEC);
         #endif
         break;
 
@@ -292,6 +290,20 @@ void recordingProgram() {
   receivePinInit();
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
   if (IrReceiver.available() && (lastPressedButton != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {   
+
+    IRData tempIRData = *IrReceiver.read(); // Read data
+
+    #ifdef DEBUG_PRINTING
+      Wire.end();
+      serialPinInit();    
+      Serial.print("IRResults: ");
+      IrReceiver.printIRResultMinimal(&Serial);
+      Serial.println();
+      Serial.flush();
+      Serial.end();
+      I2CPinInit();
+    #endif
+    
     I2CPinInit();
 
     unsigned char numberOfRecordings = 1;
@@ -329,19 +341,6 @@ void recordingProgram() {
       writeEEPROM(buttonInfoAddress(lastPressedButton), 0);
       writeEEPROM(buttonInfoAddress(lastPressedButton) + 1, 0);
     }
-
-    IRData tempIRData = *IrReceiver.read(); // Read data
-
-    #ifdef DEBUG_PRINTING
-      Wire.end();
-      serialPinInit();    
-      Serial.print("IRResults: ");
-      IrReceiver.printIRResultMinimal(&Serial);
-      Serial.println();
-      Serial.flush();
-      Serial.end();
-      I2CPinInit();
-    #endif
     
     // If the protocol is unkown, the data needs to be saved raw
     if(tempIRData.protocol == UNKNOWN) {
@@ -460,16 +459,4 @@ void wakeProcedure() {
     pinMode(column[i], OUTPUT);
     digitalWrite(column[i], HIGH);
   }
-}
-
-int freeRam() {
-
-  extern int __heap_start,*__brkval;
-
-  int v;
-
-  return (int)&v - (__brkval == 0  
-
-    ? (int)&__heap_start : (int) __brkval);  
-
 }
