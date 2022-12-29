@@ -308,6 +308,7 @@ void recordingProgram() {
       #endif
     } else {
       buttonsToEdit |= buttonBitMask(lastPressedButton);
+      
       #ifdef DEBUG_PRINTING
         Wire.end();
         serialPinInit();
@@ -328,6 +329,17 @@ void recordingProgram() {
     }
 
     IRData tempIRData = *IrReceiver.read(); // Read data
+
+    #ifdef DEBUG_PRINTING
+      Wire.end();
+      serialPinInit();    
+      Serial.print("IRResults: ");
+      IrReceiver.printIRResultMinimal(&Serial);
+      Serial.println();
+      Serial.flush();
+      Serial.end();
+      I2CPinInit();
+    #endif
     
     // If the protocol is unkown, the data needs to be saved raw
     if(tempIRData.protocol == UNKNOWN) {
@@ -348,9 +360,7 @@ void recordingProgram() {
 
     #ifdef DEBUG_PRINTING
       serialPinInit();    
-      Serial.print("IRResults: ");
-      IrReceiver.printIRResultMinimal(&Serial);
-      Serial.print("\nRecording saved on button  ");
+      Serial.print("Recording saved on button  ");
       unsigned char tempRow;
       unsigned char tempColumn;
       buttonDecimalToMatrice(&tempRow, &tempColumn, lastPressedButton);

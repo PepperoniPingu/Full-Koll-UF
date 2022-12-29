@@ -51,7 +51,7 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
       // Loop through every recording
       for (unsigned char i = 0; i < tempNumberOfRecordings; i++) { 
         
-        recordings[i].decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum) & 0x1; // Read if it is raw format or IRData
+        recordings[i].decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum); // Read if it is raw format or IRData
 
         #ifdef DEBUG_PRINTING
           Wire.end();
@@ -169,8 +169,8 @@ unsigned int readButtonPacketLength(unsigned char buttonDecimal) {
     unsigned int sumRecordingLengths = 1; // First byte is number of recordings 
     
     for (unsigned char i = 0; i < tempRecordings; i++) {
-      if (readEEPROM(tempButtonPacketAddress + 1 + sumRecordingLengths) == RAW_FLAG) { // If recording is raw or decoded
-        sumRecordingLengths += readEEPROM(tempButtonPacketAddress + 1 + sumRecordingLengths + 1) + 2; // Two extra bytes consisting of decodedFlag and length of raw code
+      if (readEEPROM(tempButtonPacketAddress + sumRecordingLengths) == RAW_FLAG) { // If recording is raw or decoded
+        sumRecordingLengths += readEEPROM(tempButtonPacketAddress + sumRecordingLengths + 1) + 2; // One extra byte consisting of decodedFlag
       } else {
         sumRecordingLengths += sizeof(IRData) + 1;
       }
@@ -221,18 +221,6 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
   for (unsigned char i = 0; i < numberOfRecordings; i++) {
   
     writeEEPROM(tempAddress + 1 + sumRecordingLengths, recordings[i].decodedFlag & 0x1); // Write if the recording is raw or decoded in to the first byte of the recording
-    
-    #ifdef DEBUG_PRINTING
-        Wire.end();
-        serialPinInit();
-        Serial.print("Writing decodedFlag to address ");
-        Serial.print(tempAddress + 1 + sumRecordingLengths, DEC);
-        Serial.print(". Wrote ");
-        Serial.println(recordings[i].decodedFlag & 0x1, DEC);
-        Serial.flush();
-        Serial.end();
-        I2CPinInit();
-      #endif
     
     if (recordings[i].decodedFlag == RAW_FLAG) {
 

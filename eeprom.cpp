@@ -1,17 +1,20 @@
 #include "eeprom.h"
 
-void writeEEPROM(unsigned int memoryAddress, unsigned char data) {
+void writeEEPROM(unsigned int memoryAddress, unsigned char data) {  
   bool successfulSend = 0;
-  // Try to send data. Can take a couple retries because the EEPROM may be busy with last request. 
-  for (int i = 0; i < I2C_RETRIES && !successfulSend; i++) { 
-    Wire.beginTransmission(EEPROM_I2C_ADDRESS);
-    Wire.write((unsigned char)(memoryAddress >> 8));   // MSB
-    Wire.write((unsigned char) memoryAddress);
-    Wire.write(data);
-    if (Wire.endTransmission(true) == 0) {
-      successfulSend = 1;
+
+  do {
+    // Try to send data. Can take a couple retries because the EEPROM may be busy with last request. 
+    for (int i = 0; i < I2C_RETRIES && !successfulSend; i++) { 
+      Wire.beginTransmission(EEPROM_I2C_ADDRESS);
+      Wire.write((unsigned char)(memoryAddress >> 8));   // MSB
+      Wire.write((unsigned char) memoryAddress);
+      Wire.write(data);
+      if (Wire.endTransmission(true) == 0) {
+        successfulSend = 1;
+      }
     }
-  }
+  } while(readEEPROM(memoryAddress) != data); // If there is no direct read efterwards the EEPROM will stay in writing mode and the data can accidentally become overridden
 }
 
 unsigned char readEEPROM(unsigned int memoryAddress) {
