@@ -172,12 +172,12 @@ void remoteProgram() {
   for (unsigned char i = 0; i < NUMBER_OF_BUTTONS; i++) {
     // If a button is pressed
     if (buttonStates & buttonBitMask(i)) {
+      
       I2CPinInit();
-       
       unsigned char recordingsOnButton = readRecordingsOnButton(i);
+      Wire.end();
       
       #ifdef DEBUG_PRINTING
-        Wire.end();
         serialPinInit();
         Serial.print("Button pressed ");
         unsigned char tempRow, tempColumn;
@@ -192,7 +192,6 @@ void remoteProgram() {
         Serial.println(recordingsOnButton, DEC);
         Serial.flush();
         Serial.end();
-        I2CPinInit();
       #endif
 
       if (recordingsOnButton) {
@@ -200,6 +199,7 @@ void remoteProgram() {
         // Loop through every recording and send it
         for (unsigned char j = 0; j < recordingsOnButton; j++) {
 
+          I2CPinInit(); 
           readButtonRecording(&globalRecording, j, i); // Read a recording
           Wire.end();
           
@@ -216,7 +216,7 @@ void remoteProgram() {
               
             #else 
               serialPinInit();
-              Serial.print("Sending raw recording. ");
+              Serial.print("\nSending raw recording. ");
               Serial.print(globalRecording.rawCodeLength, DEC);
               Serial.println(" marks or spaces.");
               Serial.flush();
@@ -231,7 +231,7 @@ void remoteProgram() {
               
             #else
               serialPinInit();
-              Serial.print("Sending decoded recording. Protocol: ");
+              Serial.print("\nSending decoded recording. Protocol: ");
               Serial.print(globalRecording.recordedIRData.protocol, DEC); 
               Serial.print(" Command: ");
               Serial.println(globalRecording.recordedIRData.command, DEC);
@@ -239,7 +239,7 @@ void remoteProgram() {
               Serial.end();
             #endif
           }
-          
+
           if (recordingsOnButton > 1 && j < recordingsOnButton - 1) {
             delay(WAIT_BETWEEN_RECORDINGS); // Wait before sending next one
           }
@@ -247,8 +247,6 @@ void remoteProgram() {
           
         delay(DELAY_BETWEEN_REPEAT); // Wait a bit between retransmissions
           
-      } else {
-        Wire.end();
       }
     }
   }
