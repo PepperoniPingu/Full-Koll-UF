@@ -15,6 +15,8 @@
 #define DECODED_FLAG 1
 #define RAW_FLAG 0
 
+#define CREATING_PACKET -1
+
 struct Recording {
   bool decodedFlag;
   IRData recordedIRData;
@@ -24,14 +26,20 @@ struct Recording {
 
 unsigned int buttonInfoAddress(unsigned char buttonDecimal);
 
-unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonDecimal);
+unsigned int buttonPacketAddress(unsigned char buttonDecimal);
+
+void readButtonRecording(Recording* recording, unsigned char recordingIndex, unsigned char buttonDecimal);
 
 unsigned char readRecordingsOnButton(unsigned char buttonDecimal);
 
 unsigned int readButtonPacketLength(unsigned char buttonDecimal);
 
-void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings, unsigned char buttonDecimal);
+void writeButtonRecording(unsigned int tempAddress, Recording* recording);
 
-unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired);
+void createButtonPacket(Recording* recording, unsigned char buttonDecimal);
+
+void pushButtonRecording(Recording* recording, unsigned char buttonDecimal);
+
+unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired, char emptyAfterButtonDecimal);
 
 #endif

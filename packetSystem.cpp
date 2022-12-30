@@ -33,7 +33,7 @@ unsigned int buttonPacketAddress(unsigned char buttonDecimal) {
 // First byte of the button packet contains the number of recordings
 // Second byte contains decoded flag
 // Third byte and after contains the first recording's IRData or the raw data
-unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonDecimal) {
+void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsigned char buttonDecimal) {
 
   unsigned int tempButtonPacketAddress = buttonPacketAddress(buttonDecimal); // Find the address of the button packet
 
@@ -41,87 +41,87 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
   if (tempButtonPacketAddress != 0) {
     
     unsigned char tempNumberOfRecordings = readRecordingsOnButton(buttonDecimal); // Read the number of recordings
-    //Serial.print("NumberOfRecordings ");
-    //Serial.println(tempNumberOfRecordings, DEC);
+
     // Only return button packets if there are any
-    if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
+    if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF && recordingIndex < tempNumberOfRecordings) {
 
       unsigned int lengthsSum = 0;
       
-      // Loop through every recording
-      for (unsigned char i = 0; i < tempNumberOfRecordings; i++) { 
+      // Loop through every recording and read their sizes to get the address of the recording indicated in argument recordingIndex
+      for (unsigned char i = 0; i < recordingIndex; i++) { 
         
-        recordings[i].decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum); // Read if it is raw format or IRData
+        if (readEEPROM(tempButtonPacketAddress + 1 + lengthsSum) == RAW_FLAG) { // Read if it is raw format or IRData
+          lengthsSum += readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1) + 2;  
+        } else {          
+          lengthsSum += sizeof(IRData) + 1;
+        }
+      }
 
-        #ifdef DEBUG_PRINTING
-          Wire.end();
-          serialPinInit();
-          Serial.print("Reading decodedFlag from address ");
-          Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
-          Serial.print(". Read ");
-          Serial.println(recordings[i].decodedFlag, DEC);
-          Serial.flush();
-          Serial.end();
-          I2CPinInit();
-        #endif
+      recording->decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum); // Read if it is raw format or IRData
 
-        if (recordings[i].decodedFlag == RAW_FLAG) {
-          recordings[i].rawCodeLength = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1); // Read length of raw data
+      #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.print("Attempting to read recording with index ");
+        Serial.println(recordingIndex, DEC);
+        Serial.print("Reading decodedFlag from address ");
+        Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
+        Serial.print(". Read ");
+        Serial.println(recording->decodedFlag, DEC);
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
+
+      // Read raw recording
+      if (recording->decodedFlag == RAW_FLAG) {
+          
+          recording->rawCodeLength = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1); // Read length of raw data
 
           // Loop through every byte in said recording and save it
-          for (unsigned char j = 0; j < recordings[i].rawCodeLength; j++) {
-            recordings[i].rawCode[j] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 2 + j); // Read byte
+          for (unsigned char i = 0; i < recording->rawCodeLength; i++) {
+            recording->rawCode[i] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 2 + i); // Read byte
             
             #ifdef DEBUG_PRINTING
               Wire.end();
               serialPinInit();
-              Serial.print("Recording: ");
-              Serial.print(i, DEC);
               Serial.print(" Byte number: ");
-              Serial.print(j, DEC);
+              Serial.print(i, DEC);
               Serial.print(" Address: ");
-              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 2 + j, DEC);
+              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 2 + i, DEC);
               Serial.print(" Byte: ");
-              Serial.println(recordings[i].rawCode[j], DEC);
+              Serial.println(recording->rawCode[i], DEC);
               Serial.flush();
               Serial.end();
               I2CPinInit();
             #endif
           }
 
-          lengthsSum += recordings[i].rawCodeLength + 2;
+        // Read decoded recording
         } else {
 
           unsigned char IRDataBuffer[sizeof(IRData)];
           
-          for (unsigned char j = 0; j < sizeof(IRData); j++) {
-            IRDataBuffer[j] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1 + j); // Read byte
+          for (unsigned char i = 0; i < sizeof(IRData); i++) {
+            IRDataBuffer[i] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1 + i); // Read byte
             
             #ifdef DEBUG_PRINTING
               Wire.end();
               serialPinInit();
-              Serial.print("Recording: ");
-              Serial.print(i, DEC);
               Serial.print(" Byte number: ");
-              Serial.print(j, DEC);
+              Serial.print(i, DEC);
               Serial.print(" Address: ");
-              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + j, DEC);
+              Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + i, DEC);
               Serial.print(" Byte: ");
-              Serial.println(IRDataBuffer[j], DEC);
+              Serial.println(IRDataBuffer[i], DEC);
               Serial.flush();
               Serial.end();
               I2CPinInit();
             #endif
           }
 
-          memcpy(&recordings[i].recordedIRData, IRDataBuffer, sizeof(IRData));   // Save the recording in IRData format
-          
-          lengthsSum += sizeof(IRData) + 1;
+          memcpy(&recording->recordedIRData, IRDataBuffer, sizeof(IRData));   // Save the recording in IRData format
         }
-        
-      } 
-
-      return tempNumberOfRecordings;  // Return number of recordings
       
     } else {
       // If there are 0 recordings here, reset the info data
@@ -130,9 +130,6 @@ unsigned char readButtonRecordings(Recording recordings[], unsigned char buttonD
       writeEEPROM(tempButtonInfoAddress + 1, 0);
     }
   }
-
-  // If earlier return didn't complete, return o. 
-  return 0;
 }
 
 
@@ -182,27 +179,97 @@ unsigned int readButtonPacketLength(unsigned char buttonDecimal) {
 }
 
 
-// Writes a button packet
-// TODO: add error handling if given tempAddress is not allowed, for example 0
-void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings, unsigned char buttonDecimal) {
+void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
 
-  unsigned int buttonPacketSize = 0;
-  for (unsigned char i = 0; i < numberOfRecordings; i++) {
-    if (recordings[i].decodedFlag == RAW_FLAG) {
-      buttonPacketSize += recordings[i].rawCodeLength + 2; // +2 since there is one byte for type of recording and one byte for length of recording
-    } else {
-      buttonPacketSize += sizeof(IRData) + 1; // +1 since there is one byte for type of recording. 
+  writeEEPROM(recordingAddress, recording->decodedFlag & 0x1); // Write if the recording is raw or decoded in to the first byte of the recording
+
+  // Write raw recording
+  if (recording->decodedFlag == RAW_FLAG) {
+
+    #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.println("Saving raw recording...");
+        Serial.print("Writing ");
+        Serial.print(recording->rawCodeLength, DEC);
+        Serial.print(" bytes.");
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
+    
+    writeEEPROM(recordingAddress + 1/*recording type*/, recording->rawCodeLength); // Write how long the recording is in the second byte of the recording
+
+    // Write the raw data
+    for (unsigned int i = 0; i < recording->rawCodeLength; i++) {
+      writeEEPROM(recordingAddress + 2/*recording type and recording length*/ + i, recording->rawCode[i]);
+
+      #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.print("Writing ");
+        Serial.print(recording->rawCode[i], DEC);
+        Serial.print(" to address ");
+        Serial.println(recordingAddress + 2/*recording type and recording length*/ + i, DEC);
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
+    }
+
+  // Decoded recording
+  } else {
+
+    #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.println("Saving decoded recording...");
+        Serial.print("Writing ");
+        Serial.print(sizeof(IRData), DEC);
+        Serial.println(" bytes.\n");
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
+
+    // Write the raw data
+    for (unsigned int i = 0; i < sizeof(IRData); i++) {
+      writeEEPROM(recordingAddress + 1/*recording type*/ + i, *((char*) &recording->recordedIRData + i));
+
+      #ifdef DEBUG_PRINTING
+        Wire.end();
+        serialPinInit();
+        Serial.print("Writing ");
+        Serial.print(*((char*) &recording->recordedIRData + i), DEC);
+        Serial.print(" to address ");
+        Serial.println(recordingAddress + 1/*recording type*/ + i, DEC);
+        Serial.flush();
+        Serial.end();
+        I2CPinInit();
+      #endif
     }
   }
 
-  unsigned int tempAddress = scanEmptyEEPROMAddresses(buttonPacketSize); // Find an empty address space where the packet can be put
+}
 
+// Creates a new button packet
+// TODO: add error handling if given tempAddress is not allowed, for example 0
+void createButtonPacket(Recording* recording, unsigned char buttonDecimal) {
+
+  // Determine size of packet
+  unsigned int buttonPacketSize;
+  if (recording->decodedFlag == RAW_FLAG) {
+    buttonPacketSize = recording->rawCodeLength + 2; // +2 since there is one byte for type of recording and one byte for length of recording
+  } else {
+    buttonPacketSize = sizeof(IRData) + 1; // +1 since there is one byte for type of recording. 
+  }
+
+  unsigned int tempAddress = scanEmptyEEPROMAddresses(buttonPacketSize, CREATING_PACKET); // Find an empty address space where the packet can be put
+  
   #ifdef DEBUG_PRINTING
     Wire.end();
     serialPinInit();
-    Serial.print("Writing ");
-    Serial.print(numberOfRecordings, DEC);
-    Serial.print(" recordings to address ");
+    Serial.print("Writing recording to address ");
     Serial.println(tempAddress, DEC);
     Serial.flush();
     Serial.end();
@@ -213,101 +280,75 @@ void writeButtonPacket(Recording recordings[], unsigned char numberOfRecordings,
   writeEEPROM(buttonInfoAddress(buttonDecimal), tempAddress >> 8);  
   writeEEPROM(buttonInfoAddress(buttonDecimal) + 1, tempAddress); 
 
-  writeEEPROM(tempAddress, numberOfRecordings); // First byte is number of recordings saved
+  writeEEPROM(tempAddress, 1); // First byte is number of recordings saved
 
-  // Write every recording in order
+  writeButtonRecording(tempAddress + 1, recording); // Write recording
+}
 
-  unsigned int sumRecordingLengths = 0;
-  for (unsigned char i = 0; i < numberOfRecordings; i++) {
-  
-    writeEEPROM(tempAddress + 1 + sumRecordingLengths, recordings[i].decodedFlag & 0x1); // Write if the recording is raw or decoded in to the first byte of the recording
+
+// Update button packet by adding a recording to the end of the packet
+void pushButtonRecording(Recording* recording, unsigned char buttonDecimal) {
+
+  // Determine if there is enough space after the existing packet to add a recording
+  bool canPutRecordingAfter = false;
+  if (recording->decodedFlag == RAW_FLAG) {
+    canPutRecordingAfter = scanEmptyEEPROMAddresses(recording->rawCodeLength + 2, buttonDecimal);
     
-    if (recordings[i].decodedFlag == RAW_FLAG) {
+  } else {
+    canPutRecordingAfter = scanEmptyEEPROMAddresses(sizeof(IRData) + 1, buttonDecimal);
+  }
 
-      #ifdef DEBUG_PRINTING
-          Wire.end();
-          serialPinInit();
-          Serial.println("Saving raw recording...");
-          Serial.print("Writing ");
-          Serial.print(recordings[i].rawCodeLength, DEC);
-          Serial.print(" bytes.");
-          Serial.flush();
-          Serial.end();
-          I2CPinInit();
-        #endif
-      
-      writeEEPROM(tempAddress + 1 + sumRecordingLengths + 1, recordings[i].rawCodeLength); // Write how long the recording is in the second byte of the recording
+  unsigned int tempButtonPacketAddress = buttonPacketAddress(buttonDecimal);
+  unsigned char numberOfRecordings = readRecordingsOnButton(buttonDecimal) + 1;
 
-      // Copy data in to byte array
-      unsigned char writeBuffer[recordings[i].rawCodeLength];
-      memcpy(writeBuffer, recordings[i].rawCode, recordings[i].rawCodeLength);
-
-      // Write the raw data
-      for (unsigned int j = 0; j < recordings[i].rawCodeLength; j++) {
-        writeEEPROM(tempAddress + 1 + sumRecordingLengths + 2 + j, writeBuffer[j]);
-
-        #ifdef DEBUG_PRINTING
-          Wire.end();
-          serialPinInit();
-          Serial.print("Writing ");
-          Serial.print(writeBuffer[j], DEC);
-          Serial.print(" to address ");
-          Serial.println(tempAddress + 1 + sumRecordingLengths + 2 + j, DEC);
-          Serial.flush();
-          Serial.end();
-          I2CPinInit();
-        #endif
-      }
-
-      sumRecordingLengths += recordings[i].rawCodeLength + 2;
-
-    // Decoded recording
-    } else {
-
-      #ifdef DEBUG_PRINTING
-          Wire.end();
-          serialPinInit();
-          Serial.println("Saving decoded recording...");
-          Serial.print("Writing ");
-          Serial.print(sizeof(IRData), DEC);
-          Serial.println(" bytes.\n");
-          Serial.flush();
-          Serial.end();
-          I2CPinInit();
-        #endif
-
-      // Copy data in to byte array
-      unsigned char writeBuffer[sizeof(IRData)];
-      memcpy(writeBuffer, &recordings[i].recordedIRData, sizeof(IRData));
-
-      // Write the raw data
-      for (unsigned int j = 0; j < sizeof(IRData); j++) {
-        writeEEPROM(tempAddress + 1 + sumRecordingLengths + 1 + j, writeBuffer[j]);
-
-        #ifdef DEBUG_PRINTING
-          Wire.end();
-          serialPinInit();
-          Serial.print("Writing ");
-          Serial.print(writeBuffer[j], DEC);
-          Serial.print(" to address ");
-          Serial.println(tempAddress + 1 + sumRecordingLengths + 1 + j, DEC);
-          Serial.flush();
-          Serial.end();
-          I2CPinInit();
-        #endif
-      }
-
-      sumRecordingLengths += sizeof(IRData) + 1;
+  // Loop through every recording and read their sizes to get the total length of all the recordings. Obs, doesn't include the extra byte for the number of recordings
+  unsigned int lengthsSum = 0;
+  for (unsigned char i = 0; i < numberOfRecordings - 1; i++) { 
+    
+    if (readEEPROM(tempButtonPacketAddress + 1/*number of recordings*/ + lengthsSum) == RAW_FLAG) { // Read if it is raw format or IRData
+      lengthsSum += readEEPROM(tempButtonPacketAddress + 1/*number of recordings*/  + lengthsSum + 1/*type of recording*/) + 2;  
+    } else {          
+      lengthsSum += sizeof(IRData) + 1/*type of recording*/;
     }
+  }
+
+  // If there is enoguh space behind the packet, put the new recording there
+  if (canPutRecordingAfter) {
+
+    writeEEPROM(tempButtonPacketAddress, numberOfRecordings); // Update the number of recordings
+
+    writeButtonRecording(tempButtonPacketAddress + 1/*number of recordings*/ + lengthsSum, recording); // Write the recording
+
+  // If there is not enough space after the packet, find a new empty space and copy the packet there
+  } else {
+
+    // Find new empty space
+    unsigned int newButtonPacketAddress = scanEmptyEEPROMAddresses(lengthsSum + (recording->decodedFlag == RAW_FLAG? recording->rawCodeLength + 2: sizeof(IRData) + 1), CREATING_PACKET);
+
+    // Copy each byte except the number of recordings
+    for (unsigned int i = 0; i < lengthsSum; i++) {
+      writeEEPROM(newButtonPacketAddress + 1/*don't copy number of recordings*/ + i, readEEPROM(tempButtonPacketAddress + 1 /*don't copy number of recordings*/));
+    }
+
+    // Update button info. Change the address to the new found one.
+    writeEEPROM(buttonInfoAddress(buttonDecimal), newButtonPacketAddress >> 8);  
+    writeEEPROM(buttonInfoAddress(buttonDecimal) + 1, newButtonPacketAddress);
+
+    writeEEPROM(newButtonPacketAddress, numberOfRecordings); // Update the number of recordings
+
+    writeButtonRecording(newButtonPacketAddress + 1/*number of recordings*/ + lengthsSum, recording); // Write the recording
   }
 }
 
 
-// Find the smallest address space where the bytes can fit
+// Find an address where the bytes required can fit. Will return the biggest free address space
+// Set emptyAfterButtonDecimal to CREATE_PACKET to look for the largest free address space. 
+// Set it to a button code to answer the question "Is there enough empty space behind this packet to extend the packet with another recording?"
 // TODO: Make it so that spaces can't be nagative and so that they can't overlap
-unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
+unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired, char emptyAfterButtonDecimal) {
+  
   unsigned int packetAddresses[NUMBER_OF_BUTTONS + 2];
-  unsigned int packetLengths[NUMBER_OF_BUTTONS + 2];
+  unsigned int packetLengths[sizeof(packetAddresses) / sizeof(unsigned int)];
 
   // Retrieve addresses and lengths of all packets
   for (unsigned char i = 0; i < NUMBER_OF_BUTTONS; i++) {
@@ -357,18 +398,31 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired) {
     I2CPinInit();
   #endif
 
-  // Find the smallest space where the bytes will fit and return that address
-  unsigned int shortestSpaceAddress = 0xFFFF;
+  // Retrieve button packet address if looking at a specific button 
+  unsigned int tempAddress = 0;
+  if (emptyAfterButtonDecimal != CREATING_PACKET) {
+    tempAddress = buttonPacketAddress(emptyAfterButtonDecimal);
+  }
+  // Find the biggest free address space and return that address or see if there is enough space behind a specific button packet
+  unsigned int longestSpaceAddress = 0;
   unsigned int addressSpace = 0;
   unsigned int bestAddress = 0;
   // Iterate through every button packet
   for (unsigned char i = 0; i < NUMBER_OF_BUTTONS + 1; i++) {
     addressSpace = packetAddresses[i+1] - (packetAddresses[i] + packetLengths[i]); // Save the address of the empty space
-    
-    // Compare the empty space, if it is large enough but also the smallest one discover yet, save it. 
-    if (addressSpace >= bytesRequired && addressSpace < shortestSpaceAddress) {
-      shortestSpaceAddress = addressSpace;
-      bestAddress = packetAddresses[i] + packetLengths[i];
+
+    // Determine if looking for longest address space or space after button
+    if (emptyAfterButtonDecimal == CREATING_PACKET) {
+      
+      // Compare the empty space, if it is large enough but also the largest one discover yet, save it. 
+      if (addressSpace >= bytesRequired && addressSpace > longestSpaceAddress) {
+        longestSpaceAddress = addressSpace;
+        bestAddress = packetAddresses[i] + packetLengths[i];
+      }
+      
+    // Looking if there is enough space after button packet
+    } else if (packetAddresses[i] == tempAddress && addressSpace >= bytesRequired) {
+      return true;
     }
   }
   
