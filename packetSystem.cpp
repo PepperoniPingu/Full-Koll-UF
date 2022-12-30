@@ -67,13 +67,13 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
 
         #ifndef DEBUG_EEPROM_PRINTING
           Serial.print("Recording is ");
-          Serial.print(recording->decodedFlag == RAW_FLAG? "raw" : "decoded");
+          Serial.println(recording->decodedFlag == RAW_FLAG? "raw" : "decoded");
         #else
           Serial.print("R A");
           Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
           Serial.print(" D");
           Serial.print(recording->decodedFlag, DEC);
-          Serial.print(" (decodedFlag)");
+          Serial.println(" (decodedFlag)");
         #endif
         Serial.flush();
         Serial.end();
@@ -105,10 +105,8 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
         // Read decoded recording
         } else {
 
-          unsigned char IRDataBuffer[sizeof(IRData)];
-          
           for (unsigned char i = 0; i < sizeof(IRData); i++) {
-            IRDataBuffer[i] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1 + i); // Read byte
+            *((unsigned char*) &recording->recordedIRData + i) = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1 + i); // Read byte
             
             #ifdef DEBUG_EEPROM_PRINTING
               Wire.end();
@@ -116,14 +114,12 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
               Serial.print("R A");
               Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + i, DEC);
               Serial.print(" D");
-              Serial.println(IRDataBuffer[i], DEC);
+              Serial.println(*((unsigned char*) &recording->recordedIRData + i), DEC);//IRDataBuffer[i], DEC);
               Serial.flush();
               Serial.end();
               I2CPinInit();
             #endif
           }
-
-          memcpy(&recording->recordedIRData, IRDataBuffer, sizeof(IRData));   // Save the recording in IRData format
         }
       
     } else {
@@ -237,7 +233,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
 
     // Write the raw data
     for (unsigned int i = 0; i < sizeof(IRData); i++) {
-      writeEEPROM(recordingAddress + 1/*recording type*/ + i, *((char*) &recording->recordedIRData + i));
+      writeEEPROM(recordingAddress + 1/*recording type*/ + i, *((unsigned char*) &recording->recordedIRData + i));
 
       #ifdef DEBUG_EEPROM_PRINTING
         Wire.end();
@@ -245,7 +241,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
         Serial.print("W A");
         Serial.print(recordingAddress + 1/*recording type*/ + i, DEC);
         Serial.print(" D");
-        Serial.println(*((char*) &recording->recordedIRData + i), DEC);
+        Serial.println(*((unsigned char*) &recording->recordedIRData + i), DEC);
         Serial.flush();
         Serial.end();
         I2CPinInit();

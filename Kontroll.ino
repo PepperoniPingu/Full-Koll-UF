@@ -218,7 +218,7 @@ void remoteProgram() {
               serialPinInit();
               Serial.print("\nSending raw recording. ");
               Serial.print(globalRecording.rawCodeLength, DEC);
-              Serial.println(" marks or spaces.");
+              Serial.println(" marks or spaces.");  
               Serial.println();
               Serial.flush();
               Serial.end();
@@ -232,10 +232,11 @@ void remoteProgram() {
               
             #else
               serialPinInit();
-              Serial.print("\nSending decoded recording. Protocol: ");
-              Serial.print(globalRecording.recordedIRData.protocol, HEX); 
-              Serial.print(" Command: ");
-              Serial.println(globalRecording.recordedIRData.command, HEX);
+              Serial.println("\nSending decoded recording");
+              IrReceiver.decodedIRData = globalRecording.recordedIRData;
+              IrReceiver.printIRResultMinimal(&Serial);
+              Serial.println();
+              IrReceiver.printIRResultRawFormatted(&Serial, true);
               Serial.println();
               Serial.flush();
               Serial.end();
@@ -303,6 +304,7 @@ void recordingProgram() {
       serialPinInit();    
       Serial.print("IRResults: ");
       IrReceiver.printIRResultMinimal(&Serial);
+      IrReceiver.printIRResultRawFormatted(&Serial, true);
       Serial.println();
       Serial.flush();
       Serial.end();
@@ -331,6 +333,10 @@ void recordingProgram() {
       // Creating a new button packet
       } else {
         buttonsToEdit |= buttonBitMask(lastPressedButton);
+
+        // Delete old packet
+        writeEEPROM(buttonInfoAddress(lastPressedButton), 0);  
+        writeEEPROM(buttonInfoAddress(lastPressedButton) + 1, 0); 
         
         #ifdef DEBUG_PRINTING
           Wire.end();
