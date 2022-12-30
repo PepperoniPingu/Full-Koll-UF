@@ -219,6 +219,7 @@ void remoteProgram() {
               Serial.print("\nSending raw recording. ");
               Serial.print(globalRecording.rawCodeLength, DEC);
               Serial.println(" marks or spaces.");
+              Serial.println();
               Serial.flush();
               Serial.end();
             #endif
@@ -232,9 +233,10 @@ void remoteProgram() {
             #else
               serialPinInit();
               Serial.print("\nSending decoded recording. Protocol: ");
-              Serial.print(globalRecording.recordedIRData.protocol, DEC); 
+              Serial.print(globalRecording.recordedIRData.protocol, HEX); 
               Serial.print(" Command: ");
-              Serial.println(globalRecording.recordedIRData.command, DEC);
+              Serial.println(globalRecording.recordedIRData.command, HEX);
+              Serial.println();
               Serial.flush();
               Serial.end();
             #endif
@@ -294,6 +296,8 @@ void recordingProgram() {
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
   if (IrReceiver.available() && (lastPressedButton != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {   
 
+    IRData tempIRData = *IrReceiver.read(); // Read the received data
+
     #ifdef DEBUG_PRINTING
       Wire.end();
       serialPinInit();    
@@ -337,8 +341,6 @@ void recordingProgram() {
           I2CPinInit();
         #endif
     }
-
-    IRData tempIRData = *IrReceiver.read(); // Read the received data
 
     // If the protocol is unkown, the data needs to be saved raw
     if(tempIRData.protocol == UNKNOWN) {

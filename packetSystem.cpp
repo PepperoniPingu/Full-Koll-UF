@@ -64,11 +64,17 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
         serialPinInit();
         Serial.print("Attempting to read recording with index ");
         Serial.println(recordingIndex, DEC);
-        Serial.print("R A");
-        Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
-        Serial.print(" D");
-        Serial.print(recording->decodedFlag, DEC);
-        Serial.println(" (decodedFlag)");
+
+        #ifndef DEBUG_EEPROM_PRINTING
+          Serial.print("Recording is ");
+          Serial.print(recording->decodedFlag == RAW_FLAG? "raw" : "decoded");
+        #else
+          Serial.print("R A");
+          Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
+          Serial.print(" D");
+          Serial.print(recording->decodedFlag, DEC);
+          Serial.print(" (decodedFlag)");
+        #endif
         Serial.flush();
         Serial.end();
         I2CPinInit();
@@ -83,7 +89,7 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
           for (unsigned char i = 0; i < recording->rawCodeLength; i++) {
             recording->rawCode[i] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 2 + i); // Read byte
             
-            #ifdef DEBUG_PRINTING
+            #ifdef DEBUG_EEPROM_PRINTING
               Wire.end();
               serialPinInit();
               Serial.print("R A");
@@ -104,7 +110,7 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
           for (unsigned char i = 0; i < sizeof(IRData); i++) {
             IRDataBuffer[i] = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum + 1 + i); // Read byte
             
-            #ifdef DEBUG_PRINTING
+            #ifdef DEBUG_EEPROM_PRINTING
               Wire.end();
               serialPinInit();
               Serial.print("R A");
@@ -184,16 +190,16 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
   if (recording->decodedFlag == RAW_FLAG) {
 
     #ifdef DEBUG_PRINTING
-        Wire.end();
-        serialPinInit();
-        Serial.println("Saving raw recording...");
-        Serial.print("Writing ");
-        Serial.print(recording->rawCodeLength, DEC);
-        Serial.println(" bytes.");
-        Serial.flush();
-        Serial.end();
-        I2CPinInit();
-      #endif
+      Wire.end();
+      serialPinInit();
+      Serial.println("Saving raw recording...");
+      Serial.print("Writing ");
+      Serial.print(recording->rawCodeLength, DEC);
+      Serial.println(" bytes.");
+      Serial.flush();
+      Serial.end();
+      I2CPinInit();
+    #endif
     
     writeEEPROM(recordingAddress + 1/*recording type*/, recording->rawCodeLength); // Write how long the recording is in the second byte of the recording
 
@@ -201,10 +207,10 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
     for (unsigned int i = 0; i < recording->rawCodeLength; i++) {
       writeEEPROM(recordingAddress + 2/*recording type and recording length*/ + i, recording->rawCode[i]);
 
-      #ifdef DEBUG_PRINTING
+      #ifdef DEBUG_EEPROM_PRINTING
         Wire.end();
         serialPinInit();
-        Serial.print("W A ");
+        Serial.print("W A");
         Serial.print(recordingAddress + 2/*recording type and recording length*/ + i, DEC);
         Serial.print(" D");
         Serial.println(recording->rawCode[i], DEC);
@@ -233,11 +239,11 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
     for (unsigned int i = 0; i < sizeof(IRData); i++) {
       writeEEPROM(recordingAddress + 1/*recording type*/ + i, *((char*) &recording->recordedIRData + i));
 
-      #ifdef DEBUG_PRINTING
+      #ifdef DEBUG_EEPROM_PRINTING
         Wire.end();
         serialPinInit();
-        Serial.print("W A ");
-        Serial.println(recordingAddress + 1/*recording type*/ + i, DEC);
+        Serial.print("W A");
+        Serial.print(recordingAddress + 1/*recording type*/ + i, DEC);
         Serial.print(" D");
         Serial.println(*((char*) &recording->recordedIRData + i), DEC);
         Serial.flush();
@@ -266,7 +272,7 @@ void createButtonPacket(Recording* recording, unsigned char buttonDecimal) {
   #ifdef DEBUG_PRINTING
     Wire.end();
     serialPinInit();
-    Serial.print("Writing recording to address ");
+    Serial.print("\nWriting recording to address ");
     Serial.println(tempAddress, DEC);
     Serial.flush();
     Serial.end();
