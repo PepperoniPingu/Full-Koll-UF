@@ -224,7 +224,8 @@ void remoteProgram() {
               Serial.flush();
               Serial.end();
             #endif
-            
+
+          // Sending decoded recording
           } else {
 
             #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender

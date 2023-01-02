@@ -107,8 +107,8 @@ void receivePinInit(){
 
 void sendPinInit(){ 
   // Disable the shorting of columns since this will also short the IR LED
-  pinMode(SHORT_COLUMNS, OUTPUT);
-  digitalWrite(SHORT_COLUMNS, HIGH);
+  pinModeFast(SHORT_COLUMNS, OUTPUT);
+  digitalWriteFast(SHORT_COLUMNS, HIGH);
   
   IrSender.enableIROut(38);
   IrSender.begin(IR_SEND_PIN);
