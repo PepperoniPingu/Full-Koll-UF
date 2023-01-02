@@ -212,8 +212,10 @@ void remoteProgram() {
 
             #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
               sendPinInit();
+              delay(DELAY_BEFORE_SEND);
               IrSender.sendRaw(globalRecording.rawCode, globalRecording.rawCodeLength, 38); // Send raw code. Assume 38 kHz carrier frequency
               PORTA.PIN4CTRL &= ~PORT_INVEN_bm; // The LED is controlled by a MOSFET that is active low. Therefore the signal needs to be inverted. And now not inverted
+              digitalWriteFast(IR_SEND_PIN, HIGH);
               
             #else 
               serialPinInit();
@@ -230,8 +232,10 @@ void remoteProgram() {
 
             #ifndef DEBUG_PRINTING // Not enough memory for both serial and IRSender
               sendPinInit();
+              delay(DELAY_BEFORE_SEND);
               IrSender.write(&(globalRecording.recordedIRData), NUMBER_OF_REPEATS);
               PORTA.PIN4CTRL &= ~PORT_INVEN_bm; // The LED is controlled by a MOSFET that is active low. Therefore the signal needs to be inverted. And now not inverted
+              digitalWriteFast(IR_SEND_PIN, HIGH);
               
             #else
               serialPinInit();
