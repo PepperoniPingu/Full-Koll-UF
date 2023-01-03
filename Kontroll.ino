@@ -221,8 +221,6 @@ void remoteProgram() {
               IrReceiver.decodedIRData = globalRecording.recordedIRData;
               IrReceiver.printIRResultMinimal(&Serial);
               Serial.println();
-              IrReceiver.printIRResultRawFormatted(&Serial, true);
-              Serial.println();
               serialPinDeInit();
             #endif
           }

@@ -48,18 +48,20 @@ void I2CPinInit() {
   Wire.begin();
 }
 
-void serialPinInit() { 
-  // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED since SHORT_COLUMNS is serial TX. 
-  pinModeFast(PIN_PB3, OUTPUT);
-  digitalWriteFast(PIN_PB3, HIGH);
-  pinModeFast(PIN_PA4, OUTPUT);
-  digitalWriteFast(PIN_PA4, HIGH);
-  pinModeFast(PIN_PA6, OUTPUT);
-  digitalWriteFast(PIN_PA6, HIGH);
-  
-  Serial.swap(0); // Use serial interface 0
-  Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);
-}
+#ifdef DEBUG_PRINTING
+  void serialPinInit() { 
+    // Make the columns OUTPUT and HIGH, otherwise, Serial will interfer with them and activate the IR LED since SHORT_COLUMNS is serial TX. 
+    pinModeFast(PIN_PB3, OUTPUT);
+    digitalWriteFast(PIN_PB3, HIGH);
+    pinModeFast(PIN_PA4, OUTPUT);
+    digitalWriteFast(PIN_PA4, HIGH);
+    pinModeFast(PIN_PA6, OUTPUT);
+    digitalWriteFast(PIN_PA6, HIGH);
+    
+    Serial.swap(0); // Use serial interface 0
+    Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);
+  }
+#endif
 
 void serialPinDeInit() {
   Serial.end();
