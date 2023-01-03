@@ -61,6 +61,13 @@ void serialPinInit() {
   Serial.begin(SERIAL_SPEED, SERIAL_TX_ONLY);
 }
 
+void serialPinDeInit() {
+  Serial.end();
+  // Correct for silicon errata. If these lines were not here the USART peripheral would not release SHORT_COLUMNs
+  USART0.CTRLB = 0; // Try to disable UART TX
+  USART0.CTRLC |= 0; // Random USART register needs to be written to in order to keep the peripheral running long enough for the previuos write to take effect
+}
+
 void buttonsPinInit() {  
   // SHORT_COLUMS is active low and needs to be disabled to read individual button presses. 
   pinModeFast(SHORT_COLUMNS, OUTPUT); 

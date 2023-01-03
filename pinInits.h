@@ -17,6 +17,8 @@ void buttonsPinInit();
 
 void receivePinInit();
 
+void serialPinDeInit();
+
 void sendPinInit();
 
 #endif

@@ -29,7 +29,7 @@ const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
 #define DEBUG_PRINTING // Not enough memory for both serial and IRSender. Therefore only one can be used at a time. If this is defined, all will work except it won't send any codes. 
 #ifdef DEBUG_PRINTING
   #define DEBUG_EEPROM_PRINTING
+  #define SERIAL_SPEED 19200 // Need to be low in order to not activate receiver
 #endif
-#define SERIAL_SPEED 19200 // Need to be low in order to not activate receiver
 
 #endif

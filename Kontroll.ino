@@ -37,34 +37,15 @@ void setup() {
   #ifdef DEBUG_PRINTING
     serialPinInit();
     Serial.println("In debug mode. Sending will not work. ");
+    serialPinDeInit();
   #endif
-  
-  // Starting tasks
-  switch (programState) {
-    case remote:      
-      #ifdef DEBUG_PRINTING
-        Serial.println("Starting as remote...");
-      #endif
-      break;
-
-    case recording:
-      receivePinInit();
-      lastPressedButton = -1;
-      
-      #ifdef DEBUG_PRINTING
-        Serial.println("Starting in recording...");
-      #endif
-      break;
-
-    default:
-      break;
-  }
 }
 
 
 void loop() {
   buttonsPinInit();
   scanMatrix(&buttonStates, &lastButtonStates, &lastPressedButton);
+  
   #ifdef DEBUG_PRINTING
     serialPinInit();
   #endif
@@ -144,9 +125,8 @@ void loop() {
     }
   }
 
-  #ifdef DEBUG_PRINTING
-    Serial.flush();
-    Serial.end();
+  #ifdef DEBUG_PRINTING1
+    serialPinDeInit();
   #endif
   
   // Chose program routine
@@ -190,8 +170,7 @@ void remoteProgram() {
         Serial.println(buttonStates, BIN);
         Serial.print("Recordings: ");
         Serial.println(recordingsOnButton, DEC);
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
       #endif
 
       if (recordingsOnButton) {
@@ -223,8 +202,7 @@ void remoteProgram() {
               Serial.print(globalRecording.rawCodeLength, DEC);
               Serial.println(" marks or spaces.");  
               Serial.println();
-              Serial.flush();
-              Serial.end();
+              serialPinDeInit();
             #endif
 
           // Sending decoded recording
@@ -245,8 +223,7 @@ void remoteProgram() {
               Serial.println();
               IrReceiver.printIRResultRawFormatted(&Serial, true);
               Serial.println();
-              Serial.flush();
-              Serial.end();
+              serialPinDeInit();
             #endif
           }
 
@@ -266,8 +243,7 @@ void remoteProgram() {
     #ifdef DEBUG_PRINTING
       serialPinInit();
       Serial.println("Sleep initiating...\n");
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
     #endif
     
     sleep();
@@ -276,8 +252,7 @@ void remoteProgram() {
     #ifdef DEBUG_PRINTING
       serialPinInit();
       Serial.println("Waking up...");
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
     #endif
   }
 }
@@ -286,18 +261,17 @@ void remoteProgram() {
 // TODO: Make it possible to store multiple recordings on one button 
 void recordingProgram() {
   #ifdef DEBUG_PRINTING
+    serialPinInit();
     for (unsigned char i = 0; i < sizeof(row); i++) {
       for (unsigned char j = 0; j < sizeof(column); j++) {
         if ((buttonStates & buttonBitMask(i, j)) && !(lastButtonStates & buttonBitMask(i, j))) {
-          serialPinInit();
           Serial.print("\nButton pressed ");
           Serial.print(i, DEC);
           Serial.println(j, DEC);
-          Serial.flush();
-          Serial.end();
         }
       }
     }
+    serialPinDeInit();
   #endif 
 
   receivePinInit();
@@ -313,8 +287,7 @@ void recordingProgram() {
       IrReceiver.printIRResultMinimal(&Serial);
       IrReceiver.printIRResultRawFormatted(&Serial, true);
       Serial.println();
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
       I2CPinInit();
     #endif
     
@@ -332,8 +305,7 @@ void recordingProgram() {
         Serial.print("Adding to button packet. Packet will consist of ");
         Serial.print(numberOfRecordings, DEC);
         Serial.println(" recordings.");
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
         I2CPinInit();
       #endif
   
@@ -349,8 +321,7 @@ void recordingProgram() {
           Wire.end();
           serialPinInit();
           Serial.println("Creating new button packet. Discarding old recordings on button. ");
-          Serial.flush();
-          Serial.end();
+          serialPinDeInit();
           I2CPinInit();
         #endif
     }
@@ -385,8 +356,7 @@ void recordingProgram() {
       Serial.print(tempRow, DEC);
       Serial.println(tempColumn, DEC);
       Serial.println();
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
     #endif
     
     lastPressedButton = -1;
@@ -401,8 +371,7 @@ void recordingProgram() {
       Serial.print("Flushing: ");
       IrReceiver.printIRResultMinimal(&Serial);
       Serial.println();
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
     #endif
 
     IrReceiver.resume();

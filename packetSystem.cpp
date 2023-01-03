@@ -75,8 +75,7 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
           Serial.print(recording->decodedFlag, DEC);
           Serial.println(" (decodedFlag)");
         #endif
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
         I2CPinInit();
       #endif
 
@@ -96,8 +95,7 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
               Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 2 + i, DEC);
               Serial.print(" D");
               Serial.println(recording->rawCode[i], DEC);
-              Serial.flush();
-              Serial.end();
+              serialPinDeInit();
               I2CPinInit();
             #endif
           }
@@ -115,8 +113,7 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
               Serial.print(tempButtonPacketAddress + 1 + lengthsSum + 1 + i, DEC);
               Serial.print(" D");
               Serial.println(*((unsigned char*) &recording->recordedIRData + i), DEC);//IRDataBuffer[i], DEC);
-              Serial.flush();
-              Serial.end();
+              serialPinDeInit();
               I2CPinInit();
             #endif
           }
@@ -192,8 +189,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
       Serial.print("Writing ");
       Serial.print(recording->rawCodeLength, DEC);
       Serial.println(" bytes.");
-      Serial.flush();
-      Serial.end();
+      serialPinDeInit();
       I2CPinInit();
     #endif
     
@@ -210,8 +206,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
         Serial.print(recordingAddress + 2/*recording type and recording length*/ + i, DEC);
         Serial.print(" D");
         Serial.println(recording->rawCode[i], DEC);
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
         I2CPinInit();
       #endif
     }
@@ -226,8 +221,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
         Serial.print("Writing ");
         Serial.print(sizeof(IRData), DEC);
         Serial.println(" bytes.\n");
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
         I2CPinInit();
       #endif
 
@@ -242,8 +236,7 @@ void writeButtonRecording(unsigned int recordingAddress, Recording* recording) {
         Serial.print(recordingAddress + 1/*recording type*/ + i, DEC);
         Serial.print(" D");
         Serial.println(*((unsigned char*) &recording->recordedIRData + i), DEC);
-        Serial.flush();
-        Serial.end();
+        serialPinDeInit();
         I2CPinInit();
       #endif
     }
@@ -270,8 +263,7 @@ void createButtonPacket(Recording* recording, unsigned char buttonDecimal) {
     serialPinInit();
     Serial.print("\nWriting recording to address ");
     Serial.println(tempAddress, DEC);
-    Serial.flush();
-    Serial.end();
+    serialPinDeInit();
     I2CPinInit();
   #endif
   
@@ -392,8 +384,7 @@ unsigned int scanEmptyEEPROMAddresses(unsigned int bytesRequired, char emptyAfte
       Serial.println(packetAddresses[i + 1], DEC);
     }
     Serial.println();
-    Serial.flush();
-    Serial.end();
+    serialPinDeInit();
     I2CPinInit();
   #endif
 
