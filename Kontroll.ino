@@ -125,7 +125,7 @@ void loop() {
     }
   }
 
-  #ifdef DEBUG_PRINTING1
+  #ifdef DEBUG_PRINTING
     serialPinDeInit();
   #endif
   
@@ -166,7 +166,7 @@ void remoteProgram() {
         Serial.print(tempColumn, DEC);
         Serial.print(": ");
         Serial.println(i, DEC);
-        Serial.print("Bit mask: ");
+        Serial.print("Button states: ");
         Serial.println(buttonStates, BIN);
         Serial.print("Recordings: ");
         Serial.println(recordingsOnButton, DEC);
@@ -198,10 +198,9 @@ void remoteProgram() {
               
             #else 
               serialPinInit();
-              Serial.print("\nSending raw recording. ");
-              Serial.print(globalRecording.rawCodeLength, DEC);
-              Serial.println(" marks or spaces.");  
-              Serial.println();
+              Serial.print("Raw code length: ");
+              Serial.println(globalRecording.rawCodeLength, DEC); 
+              Serial.println("Would send raw recording if not in debug mode... ");
               serialPinDeInit();
             #endif
 

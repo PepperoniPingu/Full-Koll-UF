@@ -59,22 +59,16 @@ void readButtonRecording(Recording* recording,unsigned char recordingIndex, unsi
 
       recording->decodedFlag = readEEPROM(tempButtonPacketAddress + 1 + lengthsSum); // Read if it is raw format or IRData
 
-      #ifdef DEBUG_PRINTING
+      #ifdef DEBUG_EEPROM_PRINTING
         Wire.end();
         serialPinInit();
         Serial.print("Attempting to read recording with index ");
         Serial.println(recordingIndex, DEC);
-
-        #ifndef DEBUG_EEPROM_PRINTING
-          Serial.print("Recording is ");
-          Serial.println(recording->decodedFlag == RAW_FLAG? "raw" : "decoded");
-        #else
-          Serial.print("R A");
-          Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
-          Serial.print(" D");
-          Serial.print(recording->decodedFlag, DEC);
-          Serial.println(" (decodedFlag)");
-        #endif
+        Serial.print("R A");
+        Serial.print(tempButtonPacketAddress + 1 + lengthsSum, DEC);
+        Serial.print(" D");
+        Serial.print(recording->decodedFlag, DEC);
+        Serial.println(" (decodedFlag)");
         serialPinDeInit();
         I2CPinInit();
       #endif
