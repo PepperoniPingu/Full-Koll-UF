@@ -200,6 +200,7 @@ void remoteProgram() {
               serialPinInit();
               Serial.print("Raw code length: ");
               Serial.println(globalRecording.rawCodeLength, DEC); 
+              printRawCode(globalRecording.rawCode, globalRecording.rawCodeLength);
               Serial.println("Would send raw recording if not in debug mode... ");
               serialPinDeInit();
             #endif
@@ -216,7 +217,7 @@ void remoteProgram() {
               
             #else
               serialPinInit();
-              Serial.println("\nSending decoded recording");
+              Serial.println("Would send decoded recording if not in debug mode...");
               IrReceiver.decodedIRData = globalRecording.recordedIRData;
               IrReceiver.printIRResultMinimal(&Serial);
               Serial.println();
@@ -283,6 +284,8 @@ void recordingProgram() {
       Serial.print("IRResults: ");
       IrReceiver.printIRResultMinimal(&Serial);
       IrReceiver.printIRResultRawFormatted(&Serial, true);
+      IrReceiver.compensateAndStoreIRResultInArray(globalRecording.rawCode);
+      printRawCode(globalRecording.rawCode, IrReceiver.decodedIRData.rawDataPtr->rawlen - 1);
       Serial.println();
       serialPinDeInit();
       I2CPinInit();
@@ -443,3 +446,18 @@ void wakeProcedure() {
     digitalWrite(column[i], HIGH);
   }
 }
+
+
+#ifdef DEBUG_PRINTING
+void printRawCode(unsigned char tempRawCode[], unsigned char tempRawCodeLength) {
+  Serial.println(tempRawCodeLength, DEC);
+  for (unsigned char i = 0; i < tempRawCodeLength; i++) {
+    Serial.print(i % 2 == 0 ? "+" : "-");
+    Serial.print(50 * tempRawCode[i], DEC);
+    Serial.print(", ");
+    if (((int)i - 1) % 8 == 0 || i == 1) {
+      Serial.println();
+    }
+  }
+}
+#endif
