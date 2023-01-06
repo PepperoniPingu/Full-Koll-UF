@@ -9,6 +9,7 @@
 unsigned long buttonStates = 0UL;
 unsigned long lastButtonStates = 0UL;
 char lastPressedButton = -1;
+unsigned long lastPressedButtonMillis = 0UL;
 
 // This defines which buttons and in which order you need to press them in order to switch program mode. 
 const unsigned char switchStateButtonSequence[] = {btn00ShiftLeft, btn10ShiftLeft, btn20ShiftLeft, btn30ShiftLeft, btn40ShiftLeft};
@@ -25,8 +26,6 @@ enum ProgramState : unsigned char {
 ProgramState programState = remote;
 
 Recording globalRecording;
-
-unsigned long lastMillisButtonRecordingState = 0UL; // Only works in recording when the device doesn't go into sleeping
 
 unsigned long buttonsToEdit = 0UL;  // When recording state is entered, all buttons previous recordings to will replaced with new recording. 
                                     // This variable is exists to see if the recording should replace previous made recording or if the packet should be edited. 
@@ -53,8 +52,7 @@ void loop() {
   // If a button has just been pressed
   if (buttonStates && buttonStates != lastButtonStates) {
 
-    // Only used in recording state
-    lastMillisButtonRecordingState = millis();
+    lastPressedButtonMillis = millis(); // Save when a button was last pressed
     
     // If the right button in the sequence to switch program state is pressed, move on to check for the next button in the sequence
     if (buttonStates & (1UL << switchStateButtonSequence[0])) {
@@ -217,15 +215,14 @@ void remoteProgram() {
               
             #else
               serialPinInit();
-              Serial.println("Would send decoded recording if not in debug mode...");
               IrReceiver.decodedIRData = globalRecording.recordedIRData;
               IrReceiver.printIRResultMinimal(&Serial);
-              Serial.println();
+              Serial.println("\nWould send decoded recording if not in debug mode...");
               serialPinDeInit();
             #endif
           }
 
-          if (recordingsOnButton > 1 && j < recordingsOnButton - 1) {
+          if (recordingsOnButton > 1 && j < recordingsOnButton) {
             delay(WAIT_BETWEEN_RECORDINGS); // Wait before sending next one
           }
         }
@@ -270,25 +267,46 @@ void recordingProgram() {
       }
     }
     serialPinDeInit();
+    receivePinInit();
   #endif 
 
-  receivePinInit();
-  // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released for WAIT_AFTER_BUTTON since buttons on column 3 and 4 activate the sendere and that garbage can get recieved.
-  if (IrReceiver.available() && (lastPressedButton != -1) && buttonStates == 0 && millis() - lastMillisButtonRecordingState > WAIT_AFTER_BUTTON) {   
+  // If button is depressed for BUTTON_RESET_MILLIS, delete the recordings on that button
+  if (buttonStates && millis() - lastPressedButtonMillis > BUTTON_RESET_MILLIS) {
+    
+    // Delete packet
+    I2CPinInit();
+    writeEEPROM(buttonInfoAddress(lastPressedButton), 0);  
+    writeEEPROM(buttonInfoAddress(lastPressedButton) + 1, 0);
+    Wire.end();
+
+    #ifdef DEBUG_PRINTING
+      serialPinInit();
+      Serial.print("Deleted button packet ");
+      Serial.println(lastPressedButton, DEC);
+      serialPinDeInit();
+    #endif
+
+    #ifdef DEBUG_PRINTING
+      lastPressedButtonMillis = millis(); // Only for not spamming the serial port
+    #endif
+    
+    receivePinInit();
+    IrReceiver.start(IR_RECEIVE_PIN);
+
+
+  // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released
+  } else if (IrReceiver.available() && lastPressedButton != -1 && buttonStates == 0) {   
 
     IRData tempIRData = *IrReceiver.read(); // Read the received data
 
     #ifdef DEBUG_PRINTING
-      Wire.end();
       serialPinInit();    
       Serial.print("IRResults: ");
       IrReceiver.printIRResultMinimal(&Serial);
-      IrReceiver.printIRResultRawFormatted(&Serial, true);
       IrReceiver.compensateAndStoreIRResultInArray(globalRecording.rawCode);
       printRawCode(globalRecording.rawCode, IrReceiver.decodedIRData.rawDataPtr->rawlen - 1);
       Serial.println();
       serialPinDeInit();
-      I2CPinInit();
     #endif
     
     I2CPinInit();
@@ -336,7 +354,7 @@ void recordingProgram() {
     } else {
       globalRecording.decodedFlag = DECODED_FLAG; // Indicate that the recording is raw
       globalRecording.recordedIRData = {tempIRData}; // Read the decoded IRData
-      //buttonRecordings[numberOfRecordings - 1].flags = 0; // clear flags -esp. repeat- for later sending
+      globalRecording.recordedIRData.flags = 0; // clear flags -esp. repeat- for later sending
     }
 
     if (numberOfRecordings > 1) {
@@ -450,12 +468,13 @@ void wakeProcedure() {
 
 #ifdef DEBUG_PRINTING
 void printRawCode(unsigned char tempRawCode[], unsigned char tempRawCodeLength) {
+  Serial.print("Raw code length: ");
   Serial.println(tempRawCodeLength, DEC);
   for (unsigned char i = 0; i < tempRawCodeLength; i++) {
     Serial.print(i % 2 == 0 ? "+" : "-");
     Serial.print(50 * tempRawCode[i], DEC);
     Serial.print(", ");
-    if (((int)i - 1) % 8 == 0 || i == 1) {
+    if (((int)i - 1) % 8 == 0 || i == 1 || i == tempRawCodeLength - 1) {
       Serial.println();
     }
   }
