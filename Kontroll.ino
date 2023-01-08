@@ -233,8 +233,8 @@ void remoteProgram() {
     }
   }
 
-  // Only sleep if no buttons are pressed
-  if (buttonStates == 0UL) {
+  // Only sleep if no buttons are pressed or enough time has passed
+  if (buttonStates == 0UL || millis() - lastPressedButtonMillis > FORCE_SLEEP_AFTER) {
     #ifdef DEBUG_PRINTING
       serialPinInit();
       Serial.println("Sleep initiating...\n");
