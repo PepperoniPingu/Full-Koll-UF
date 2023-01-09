@@ -131,6 +131,18 @@ unsigned char readRecordingsOnButton(unsigned char buttonDecimal) {
   if (tempButtonPacketAddress != 0) {
     unsigned char tempNumberOfRecordings = readEEPROM(tempButtonPacketAddress); // Read the number of recordings
     
+    #ifdef DEBUG_PRINTING
+      Wire.end();
+      serialPinInit();
+      Serial.print("R A");
+      Serial.print(tempButtonPacketAddress, DEC);
+      Serial.print(" D");
+      Serial.print(tempNumberOfRecordings, DEC);
+      Serial.println(" (recordings)");
+      serialPinDeInit();
+      I2CPinInit();
+    #endif
+    
     // Take action if there are 0 recordings 
     if (tempNumberOfRecordings != 0 && tempNumberOfRecordings != 0xFF) {
         return tempNumberOfRecordings; // Return packet length

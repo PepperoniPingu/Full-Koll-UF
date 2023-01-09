@@ -5,6 +5,7 @@
 #include "eeprom.h"
 #include "pinInits.h"
 #include "packetSystem.h"
+#include "wdt.h"
 
 unsigned long buttonStates = 0UL;
 unsigned long lastButtonStates = 0UL;
@@ -27,10 +28,12 @@ ProgramState programState = remote;
 
 Recording globalRecording;
 
-unsigned long buttonsToEdit = 0UL;  // When recording state is entered, all buttons previous recordings to will replaced with new recording. 
+unsigned long buttonsToEdit = 0x0UL;  // When recording state is entered, all buttons previous recordings to will replaced with new recording. 
                                     // This variable is exists to see if the recording should replace previous made recording or if the packet should be edited. 
 
 void setup() {
+  wdt_enable(); // Enable watchdog
+  
   setupPinInit();
 
   #ifdef DEBUG_PRINTING
@@ -42,6 +45,8 @@ void setup() {
 
 
 void loop() {
+  wdt_reset(); // Reset the watchdog
+  
   buttonsPinInit();
   scanMatrix(&buttonStates, &lastButtonStates, &lastPressedButton);
   
@@ -87,7 +92,7 @@ void loop() {
       case recording:
         IrReceiver.end();
         lastPressedButton = -1;
-        buttonsToEdit = 0UL;
+        buttonsToEdit = 0x0UL;
         break;
 
       default:
@@ -175,6 +180,7 @@ void remoteProgram() {
         
         // Loop through every recording and send it
         for (unsigned char j = 0; j < recordingsOnButton; j++) {
+          wdt_reset(); // Sending can take some time so make sure to reset the watchdog before every sending
 
           I2CPinInit(); 
           readButtonRecording(&globalRecording, j, i); // Read a recording
@@ -286,16 +292,16 @@ void recordingProgram() {
       serialPinDeInit();
     #endif
 
-    #ifdef DEBUG_PRINTING
-      lastPressedButtonMillis = millis(); // Only for not spamming the serial port
-    #endif
+    lastPressedButtonMillis = millis(); 
     
     receivePinInit();
     IrReceiver.start(IR_RECEIVE_PIN);
 
 
   // If there is recieved data and a button was pressed, decode. Only record when all buttons have been released
-  } else if (IrReceiver.available() && lastPressedButton != -1 && buttonStates == 0) {   
+  } else if (IrReceiver.available() && lastPressedButton != -1 && buttonStates == 0 && millis() - lastPressedButtonMillis > WAIT_AFTER_BUTTON) {
+
+    wdt_reset(); // Reset the watchdog
 
     IRData tempIRData = *IrReceiver.read(); // Read the received data
 
@@ -435,6 +441,8 @@ void sleep() {
   PORTA.PIN2CTRL = 0b00001011; // Pull up enabled and interrupt on falling edge configured for PIN_PA2
   PORTA.PIN6CTRL = 0b00001011; // Same thing for PIN_PA6
 
+  wdt_disable(); // Don't want to reset during sleep
+
   SLPCTRL.CTRLA = 0b00000101; // Set sleep mode to power-down and enable sleeping
   __asm__ __volatile__ ( "sleep" "\n\t" :: ); // Start sleeping
 }
@@ -453,16 +461,9 @@ ISR(PORTA_PORT_vect) {
 void wakeProcedure() {
   SLPCTRL.CTRLA = 0b00000100; // Disable sleeping
 
-  // Revert rows to high
-  for (unsigned char i = 0; i < sizeof(row); i++) {
-    digitalWrite(row[i], HIGH);
-  }
+  wdt_enable();
 
-  // Revert columns to high
-  for (unsigned char i = 0; i < sizeof(column); i++) {
-    pinMode(column[i], OUTPUT);
-    digitalWrite(column[i], HIGH);
-  }
+  setupPinInit();
 }
 
 

@@ -3,6 +3,17 @@
 void writeEEPROM(unsigned int memoryAddress, unsigned char data) {  
   bool successfulSend = 0;
 
+  #ifdef DEBUG_PRINTING
+    Wire.end();
+    serialPinInit();
+    Serial.print("W A");
+    Serial.print(memoryAddress, DEC);
+    Serial.print(" D");
+    Serial.println(data, DEC);
+    serialPinDeInit();
+    I2CPinInit();
+  #endif
+
   do {
     // Try to send data. Can take a couple retries because the EEPROM may be busy with last request. 
     for (int i = 0; i < I2C_RETRIES && !successfulSend; i++) { 
