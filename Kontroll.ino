@@ -234,7 +234,7 @@ void remoteProgram() {
   }
 
   // Only sleep if no buttons are pressed or enough time has passed
-  if (buttonStates == 0UL || millis() - lastPressedButtonMillis > FORCE_SLEEP_AFTER) {
+  if (buttonStates == 0UL || (unsigned long)(millis() - lastPressedButtonMillis) > FORCE_SLEEP_AFTER) {
     #ifdef DEBUG_PRINTING
       serialPinInit();
       Serial.println("Sleep initiating...\n");
@@ -271,7 +271,7 @@ void recordingProgram() {
   #endif 
 
   // If button is depressed for BUTTON_RESET_MILLIS, delete the recordings on that button
-  if (buttonStates && millis() - lastPressedButtonMillis > BUTTON_RESET_MILLIS) {
+  if (buttonStates && (unsigned long)(millis() - lastPressedButtonMillis) > BUTTON_RESET_MILLIS) {
     
     // Delete packet
     I2CPinInit();
