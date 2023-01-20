@@ -31,6 +31,14 @@ Recording globalRecording;
 unsigned long buttonsToEdit = 0x0UL;  // When recording state is entered, all buttons previous recordings to will replaced with new recording. 
                                     // This variable is exists to see if the recording should replace previous made recording or if the packet should be edited. 
 
+#ifdef DEBUG_PRINTING
+  uint8_t reset_flags;
+  void init_reset_flags() { //override the stock init_reset_flags() - this runs very early, before anything else is initialized. You can write pins here, but that's about it.
+    reset_flags = RSTCTRL.RSTFR;   // Read flags. Declare variable as local or global as needed.
+    RSTCTRL.RSTFR = reset_flags;   // Clear the flags by writing the value back to it.
+  }
+#endif
+
 void setup() {
   wdt_enable(); // Enable watchdog
   
@@ -38,6 +46,29 @@ void setup() {
 
   #ifdef DEBUG_PRINTING
     serialPinInit();
+    if (reset_flags) {
+      if (reset_flags & RSTCTRL_UPDIRF_bm) {
+        Serial.println("Reset by UPDI (code just upoloaded now)");
+      }
+      if (reset_flags & RSTCTRL_WDRF_bm) {
+        Serial.println("reset by WDT timeout");
+      }
+      if (reset_flags & RSTCTRL_SWRF_bm) {
+        Serial.println("reset at request of user code.");
+      }
+      if (reset_flags & RSTCTRL_EXTRF_bm) {
+        Serial.println("Reset because reset pin brought low");
+      }
+      if (reset_flags & RSTCTRL_BORF_bm) {
+        Serial.println("Reset by voltage brownout");
+      }
+      if (reset_flags & RSTCTRL_PORF_bm) {
+        Serial.println("Reset by power on");
+      }
+    } else {
+      Serial.println("WARNING! Dirty reset");
+    }
+    
     Serial.println("In debug mode. Sending will not work. ");
     serialPinDeInit();
   #endif
@@ -303,7 +334,7 @@ void recordingProgram() {
 
     wdt_reset(); // Reset the watchdog
 
-    IRData tempIRData = *IrReceiver.read(); // Read the received data
+    globalRecording.recordedIRData = *IrReceiver.read(); // Read the received data
 
     #ifdef DEBUG_PRINTING
       serialPinInit();    
@@ -351,7 +382,7 @@ void recordingProgram() {
     }
 
     // If the protocol is unkown, the data needs to be saved raw
-    if(tempIRData.protocol == UNKNOWN) {
+    if(globalRecording.recordedIRData.protocol == UNKNOWN) {
       globalRecording.decodedFlag = RAW_FLAG; // Indicate that the recording is raw
       globalRecording.rawCodeLength = IrReceiver.decodedIRData.rawDataPtr->rawlen - 1; // Save the length of the recording. -1 since first byte is space since last recording I think...
       IrReceiver.compensateAndStoreIRResultInArray(globalRecording.rawCode); // Clean up the recording and save it
@@ -359,7 +390,6 @@ void recordingProgram() {
     // If the data can be decoded, save it as IRData
     } else {
       globalRecording.decodedFlag = DECODED_FLAG; // Indicate that the recording is raw
-      globalRecording.recordedIRData = {tempIRData}; // Read the decoded IRData
       globalRecording.recordedIRData.flags = 0; // clear flags -esp. repeat- for later sending
     }
 

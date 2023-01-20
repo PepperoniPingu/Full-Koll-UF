@@ -26,9 +26,9 @@ const unsigned char column[4] = {PIN_PB3, PIN_PA2, PIN_PA4, PIN_PA6};
 
 #define DELAY_BEFORE_SEND 20 // Delay between I2C reading and IR sending. Important since the I2C reading interferes with the IR LED
 #define NUMBER_OF_REPEATS 0U // Results in 3 sent recordings
-#define DELAY_BETWEEN_REPEAT 500
-#define WAIT_BETWEEN_RECORDINGS 200 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording
-#define WAIT_AFTER_BUTTON 100
+#define DELAY_BETWEEN_REPEAT 700
+#define WAIT_BETWEEN_RECORDINGS 100 // If there are multiple recordings on a button, wait this amount of milliseconds betweeen sending out each recording
+#define WAIT_AFTER_BUTTON 200
 
 #define FORCE_SLEEP_AFTER 10000 // After this amount of milliseconds, force the microcontroller in to sleep even if buttons are depressed
 
